@@ -135,22 +135,40 @@ class DBManager:
         return os.path.basename(self.db_path)
 
     def get_active_database_metrics_report(self) -> Dict[str, Any]:
+        """Compiles a statistical report of the current database state."""
         import os
+        metrics = {
+            "landmarks_count": "0",
+            "global_descriptors_count": "0",
+            "local_features_count": "0",
+            "disk_size_string": "0.0 KB"
+        }
 
-        metrics = {"file_size_kb": 0.0, "total_users": 0, "total_landmarks": 0}
-
+        # Calculate live disk footprint
         if os.path.exists(self.db_path):
-            metrics["file_size_kb"] = round(os.path.getsize(self.db_path) / 1024, 2)
+            size_kb = os.path.getsize(self.db_path) / 1024
+            if size_kb > 1024:
+                metrics["disk_size_string"] = f"{size_kb / 1024:.2f} MB"
+            else:
+                metrics["disk_size_string"] = f"{size_kb:.2f} KB"
 
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT COUNT(*) FROM Users;")
-            metrics["total_users"] = cursor.fetchone()[0]
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
 
-            cursor.execute("SELECT COUNT(*) FROM Landmarks;")
-            metrics["total_landmarks"] = cursor.fetchone()[0]
+                cursor.execute("SELECT COUNT(*) FROM Landmarks;")
+                metrics["landmarks_count"] = str(cursor.fetchone()[0])
+
+                cursor.execute("SELECT COUNT(*) FROM GlobalDescriptors;")
+                metrics["global_descriptors_count"] = str(cursor.fetchone()[0])
+
+                cursor.execute("SELECT COUNT(*) FROM LocalFeatures;")
+                metrics["local_features_count"] = str(cursor.fetchone()[0])
+        except sqlite3.Error:
+            pass  # Return defaults safely if tables haven't been created yet
 
         return metrics
+
 
     def get_all_global_descriptors(self) -> list:
         with self._get_connection() as conn:

@@ -12,7 +12,7 @@ from gui.views.auth_view import AuthorizationView
 from gui.views.operator_view import OperatorDashboardView
 from gui.views.preparation_view import PreparationView
 from gui.views.settings_view import SettingsView
-
+from logic.data_processor import DataProcessor
 
 class LandAnchorApp(tk.Tk):
     def __init__(self, db_path: str):
@@ -36,7 +36,7 @@ class LandAnchorApp(tk.Tk):
         self.auth_manager = CryptographicAuthManager(self.db_manager)
         self.logger = SystemLogger()
         self.operator_manager = OperatorManager(self.db_manager, self.settings_manager)
-
+        self.data_processor = DataProcessor(self.db_manager, self.settings_manager)
         self.current_user = None
         self.is_hardware_key_valid = False
         self.active_view_name = None
@@ -58,6 +58,16 @@ class LandAnchorApp(tk.Tk):
 
         self.settings_manager = SettingsManager("system_preferences.json")
         self.config = self.settings_manager.data
+
+        # --- OPERATOR & PREPARATION DELEGATION ---
+    def register_active_operator_view(self, view_instance: object) -> None:
+        self.operator_manager.register_view(view_instance)
+
+    def register_preparation_view(self, view_instance: object) -> None:
+        self.data_processor.register_view(view_instance)
+
+    def start_operator_simulation(self, dataset_dir: str) -> None:
+        self.operator_manager.start_dataset_simulation(dataset_dir)
 
     # --- SETTINGS DELEGATION ---
     def get_cv_params(self) -> dict:
@@ -99,7 +109,7 @@ class LandAnchorApp(tk.Tk):
 
         tk.Label(
             header_frame,
-            text="Drone Security System",
+            text="Autonomus Navigation System",
             fg=self.config["theme"]["accent_blue"],
             bg=self.config["theme"]["bg_secondary"],
             font=("Arial", 14, "bold"),
@@ -221,5 +231,4 @@ class LandAnchorApp(tk.Tk):
     ) -> None:
         from logic.data_processor import DataProcessor
 
-        processor = DataProcessor(self.db_manager, self.settings_manager)
-        processor.start_dataset_processing_pipeline(target_dir, view_callback)
+        self.data_processor.start_dataset_processing_pipeline(target_dir, view_callback)

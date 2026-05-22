@@ -274,6 +274,15 @@ class PreparationView(tk.Frame):
         self.video_canvas.bind("<Configure>", lambda e: self.update_canvas_frame_view())
 
         self.refresh_ui_metrics_display()
+        self.flight_path = []
+        self.anchor_points = []
+        self.video_canvas.bind("<Configure>", lambda e: self.update_canvas_frame_view())
+
+        # Register this view with the controller so progress state survives tab switching
+        if hasattr(self.controller, "register_preparation_view"):
+            self.controller.register_preparation_view(self)
+
+        self.refresh_ui_metrics_display()
 
     def refresh_ui_metrics_display(self) -> None:
         metrics = self.controller.get_active_database_metrics_report()
@@ -318,6 +327,11 @@ class PreparationView(tk.Frame):
         self.side_land.configure(text=str(data.get("total_landmarks", 0)))
         self.side_keyf.configure(text=str(data.get("total_keyframes", 0)))
         self.update_canvas_frame_view(running=True)
+
+        # DYNAMIC UI UPDATE: Poll the database metrics during processing
+        # We use modulo 5 to avoid spamming the SQLite database with queries on every single frame
+        if data.get("current_index", 0) % 5 == 0:
+            self.refresh_ui_metrics_display()
 
     def ui_signal_process_complete(self) -> None:
         self.proc_btn.configure(state="normal")
