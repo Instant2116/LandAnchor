@@ -95,12 +95,6 @@ class LandAnchorApp(tk.Tk):
     def clear_system_logs(self) -> None:
         self.logger.clear_logs()
 
-    # --- OPERATOR DELEGATION ---
-    def register_active_operator_view(self, view_instance: object) -> None:
-        self.operator_manager.register_view(view_instance)
-
-    def start_operator_simulation(self, dataset_dir: str) -> None:
-        self.operator_manager.start_dataset_simulation(dataset_dir)
 
     # --- NAVIGATION & VIEW MANAGEMENT ---
     def _build_sidebar_layout(self) -> None:
@@ -229,6 +223,5 @@ class LandAnchorApp(tk.Tk):
     def start_dataset_processing_pipeline(
         self, target_dir: str, view_callback: object
     ) -> None:
-        from logic.data_processor import DataProcessor
 
         self.data_processor.start_dataset_processing_pipeline(target_dir, view_callback)
