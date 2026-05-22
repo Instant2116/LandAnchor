@@ -17,13 +17,18 @@ from gui.views.settings_view import SettingsView
 class LandAnchorApp(tk.Tk):
     def __init__(self, db_path: str):
         super().__init__()
-        self.title("Drone Security System - LandAnchor")
+        self.title("Drone Navigation System - LandAnchor")
         self.geometry("1440x850")
         self.minsize(1280, 720)
+
+
 
         # Load configuration first
         self.settings_manager = SettingsManager("system_preferences.json")
         self.config = self.settings_manager.data
+
+
+
 
         self.configure(bg=self.config["theme"]["bg_primary"])
 
@@ -50,6 +55,9 @@ class LandAnchorApp(tk.Tk):
         self.nav_buttons = {}
         self._build_sidebar_layout()
         self.show_view("Authorization", AuthorizationView)
+
+        self.settings_manager = SettingsManager("system_preferences.json")
+        self.config = self.settings_manager.data
 
     # --- SETTINGS DELEGATION ---
     def get_cv_params(self) -> dict:
@@ -169,19 +177,33 @@ class LandAnchorApp(tk.Tk):
         self.current_frame = view_class(parent=self.workspace, controller=self)
         self.current_frame.pack(fill="both", expand=True)
 
-        # --- AUTH & DB HELPERS ---
-        def generate_demo_hardware_key(self, path: str, view: AuthorizationView) -> None:
-            self.auth_manager.generate_demo_key_file(path)
-            view.ui_signal_demo_key_generated()
+    # --- AUTH & DB HELPERS ---
+    def generate_demo_hardware_key(self, path: str, view: AuthorizationView) -> None:
+        # 1. Generate the physical file on disk with unique entropy
+        self.auth_manager.generate_demo_key_file(path)
 
-        def validate_hardware_key(self, path: str, view_callback: AuthorizationView) -> None:
-            user = self.auth_manager.authenticate_by_token(path)
-            if user:
-                self.current_user = user
-                self.is_hardware_key_valid = True
-                view_callback.ui_signal_auth_success(user["username"])
-            else:
-                view_callback.ui_signal_auth_failure("Invalid or expired hardware token.")
+        # 2. Register the token in the database
+        # The role MUST be exactly 'Operator' or 'Technician' to satisfy the Foreign Key constraint
+        registration_success = self.auth_manager.register_new_token_offline(
+            file_path=path,
+            proposed_username="Demo_User",
+            target_role="Technician"
+        )
+
+        # 3. Signal the UI based on database transaction success
+        if registration_success:
+            view.ui_signal_demo_key_generated()
+        else:
+            view.ui_signal_auth_failure("Database registration for demo key failed.")
+
+    def validate_hardware_key(self, path: str, view_callback: AuthorizationView) -> None:
+        user = self.auth_manager.authenticate_by_token(path)
+        if user:
+            self.current_user = user
+            self.is_hardware_key_valid = True
+            view_callback.ui_signal_auth_success(user["username"])
+        else:
+            view_callback.ui_signal_auth_failure("Invalid or expired hardware token.")
 
     def get_database_filename_node(self) -> str:
         return self.db_manager.get_database_filename_node()
@@ -197,7 +219,6 @@ class LandAnchorApp(tk.Tk):
     def start_dataset_processing_pipeline(
         self, target_dir: str, view_callback: object
     ) -> None:
-        # Імпортуємо тут, щоб уникнути циклічних імпортів
         from logic.data_processor import DataProcessor
 
         processor = DataProcessor(self.db_manager, self.settings_manager)

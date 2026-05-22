@@ -24,7 +24,12 @@ class XFeatCore:
         desc /= np.linalg.norm(desc, axis=1, keepdims=True) + 1e-6
 
         # 3. GeM Pooling
-        gem = np.power(np.mean(np.power(desc, self.gem_p), axis=0), 1.0 / self.gem_p)
+        # Calculate the mean of the powered descriptors
+        mean_powered = np.mean(np.power(desc, self.gem_p), axis=0)
+
+        # Extract the sign and apply the fractional root only to the absolute values
+        gem = np.sign(mean_powered) * np.power(np.abs(mean_powered), 1.0 / self.gem_p)
+        gem /= np.linalg.norm(gem) + 1e-6
         gem /= np.linalg.norm(gem) + 1e-6
 
         return {

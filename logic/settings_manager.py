@@ -7,9 +7,9 @@ class SettingsManager:
         self.config_path = config_path
         self.data = self._load()
 
-    def _load(self) -> dict:
-        """ Reads the JSON file or returns default settings if the file is missing. """
-        default_config = {
+    def _get_hardcoded_defaults(self) -> dict:
+        """ Returns the structural baseline to prevent KeyErrors. """
+        return {
             "theme": {
                 "bg_primary": "#020617",
                 "bg_secondary": "#0f172a",
@@ -28,35 +28,50 @@ class SettingsManager:
                 "accent_success": "#10b981",
                 "border_color": "#334155"
             },
-            "cv_params": {
+            "cv_defaults": {
                 "xfeatMaxFeatures": 500,
+                "xfeatConfidenceThreshold": 0.005,
+                "gemPoolingPower": 3,
                 "matchRatio": 0.75,
                 "ransacThreshold": 3.0,
                 "minInliers": 15,
+                "topKCandidates": 5,
+                "globalDistanceThreshold": 0.4,
                 "featureDetector": "XFeat (Local ONNX Engine)",
                 "descriptorMatcher": "MNN Matcher (Vectorized Core)",
                 "outlierFilter": "RANSAC (OpenCV Matrix)",
                 "debugVisualization": True
+            },
+            "system": {
+                "app_title": "Drone Security System - LandAnchor",
+                "version": "v2.5.0",
+                "default_key_name": "hardware_key.pem"
             }
         }
+
+    def _load(self) -> dict:
+        """ Reads the JSON file or returns default settings if the file is missing. """
+        default_config = self._get_hardcoded_defaults()
 
         if os.path.exists(self.config_path):
             try:
                 with open(self.config_path, "r", encoding="utf-8") as f:
-                    return json.load(f)
+                    file_data = json.load(f)
+                    # Merge to ensure missing keys (like 'system') are filled even if file is partially corrupt
+                    return {**default_config, **file_data}
             except Exception:
                 return default_config
         return default_config
 
     def get_cv_params(self) -> dict:
         """ Returns the current computer vision parameter dictionary. """
-        return self.data.get("cv_params", {})
+        return self.data.get("cv_defaults", {})
 
     def update_cv_param(self, key: str, value: Any) -> None:
         """ Updates a specific computer vision parameter in memory. """
-        if "cv_params" not in self.data:
-            self.data["cv_params"] = {}
-        self.data["cv_params"][key] = value
+        if "cv_defaults" not in self.data:
+            self.data["cv_defaults"] = {}
+        self.data["cv_defaults"][key] = value
 
     def save(self) -> None:
         """ Saves the current dictionary to system_preferences.json. """
@@ -65,9 +80,9 @@ class SettingsManager:
 
     def reset_to_defaults(self) -> dict:
         """ Restores and returns the default configuration. """
-        default_state = self._load()
-        self.data["cv_params"] = default_state.get("cv_params", {})
-        return self.data["cv_params"]
+        default_state = self._get_hardcoded_defaults()
+        self.data["cv_defaults"] = default_state["cv_defaults"]
+        return self.data["cv_defaults"]
 
     def get_theme(self) -> dict:
         """ Retrieves theme settings. """

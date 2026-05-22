@@ -123,211 +123,144 @@ class CVParamsTab(tk.Frame):
             highlightbackground=theme["border_color"],
             highlightthickness=1,
         )
-        threshold_card.pack(fill="both", expand=True, ipady=16)
+        threshold_card.pack(fill="both", expand=True, ipady=8)
         tk.Label(
             threshold_card,
             text="Pipeline Tuning Parameters",
             fg=theme["text_primary"],
             bg=theme["bg_secondary"],
             font=("Arial", 11, "bold"),
-        ).pack(anchor="w", padx=20, pady=(16, 20))
+        ).pack(anchor="w", padx=20, pady=(12, 12))
 
         self.feat_slider, self.feat_entry = self._create_slider_control(
-            threshold_card,
-            "XFeat Max Features Filter",
-            100,
-            2000,
-            "xfeatMaxFeatures",
-            "Limits top detected keypoints key array lengths. Bounds: 100 - 2000",
+            threshold_card, "XFeat Max Features", 100, 2000, "xfeatMaxFeatures",
+            "Limits top keypoints array length. Bounds: 100 - 2000"
+        )
+        self.conf_slider, self.conf_entry = self._create_slider_control(
+            threshold_card, "XFeat Confidence Limit", 1, 100, "xfeatConfidenceThreshold",
+            "Minimum keypoint extraction score. Bounds: 0.001 - 0.100", multiplier=1000
+        )
+        self.gem_slider, self.gem_entry = self._create_slider_control(
+            threshold_card, "GeM Pooling Power", 1, 10, "gemPoolingPower",
+            "Generalized Mean Pooling parameter. Bounds: 1 - 10"
         )
         self.match_slider, self.match_entry = self._create_slider_control(
-            threshold_card,
-            "MNN Matching Filter Ratio",
-            10,
-            100,
-            "matchRatio",
-            "Mutual Nearest Neighbor validation scale constraint. Bounds: 0.10 - 1.00",
-            multiplier=100,
+            threshold_card, "MNN Matching Ratio", 10, 100, "matchRatio",
+            "Nearest Neighbor validation constraint. Bounds: 0.10 - 1.00", multiplier=100
         )
         self.ransac_slider, self.ransac_entry = self._create_slider_control(
-            threshold_card,
-            "RANSAC Outlier Pixel Distance",
-            5,
-            100,
-            "ransacThreshold",
-            "Maximum homography coordinate deviation pixel radius. Bounds: 0.5 - 10.0",
-            multiplier=10,
+            threshold_card, "RANSAC Outlier Radius", 5, 100, "ransacThreshold",
+            "Max homography pixel deviation. Bounds: 0.5 - 10.0", multiplier=10
         )
         self.inlier_slider, self.inlier_entry = self._create_slider_control(
-            threshold_card,
-            "Minimum Matrix Inlier Pairs",
-            5,
-            50,
-            "minInliers",
-            "Minimum matching nodes required for structural integrity checks. Bounds: 5 - 50",
+            threshold_card, "Min Matrix Inliers", 5, 50, "minInliers",
+            "Minimum nodes for structural integrity. Bounds: 5 - 50"
+        )
+        self.topk_slider, self.topk_entry = self._create_slider_control(
+            threshold_card, "Top-K Candidates", 1, 50, "topKCandidates",
+            "Number of global search candidates. Bounds: 1 - 50"
+        )
+        self.gdist_slider, self.gdist_entry = self._create_slider_control(
+            threshold_card, "Global Distance Threshold", 10, 100, "globalDistanceThreshold",
+            "Max cosine distance for global match. Bounds: 0.10 - 1.00", multiplier=100
         )
 
         btn_box = tk.Frame(left_pane, bg=theme["bg_primary"])
-        btn_box.pack(fill="x", pady=16)
+        btn_box.pack(fill="x", pady=12)
         tk.Button(
-            btn_box,
-            text="Save State to Disk",
-            bg=theme["bg_accent"],
-            fg=theme["text_primary"],
-            bd=0,
-            font=("Arial", 11, "bold"),
-            cursor="hand2",
-            command=self.apply_config_changes,
+            btn_box, text="Save State to Disk", bg=theme["bg_accent"], fg=theme["text_primary"],
+            bd=0, font=("Arial", 11, "bold"), cursor="hand2", command=self.apply_config_changes,
         ).pack(side="left", fill="x", expand=True, padx=(0, 6), ipady=10)
         tk.Button(
-            btn_box,
-            text="Reset to Baseline",
-            bg=theme["bg_tertiary"],
-            fg=theme["text_primary"],
-            bd=1,
-            relief="solid",
-            font=("Arial", 11),
-            cursor="hand2",
-            command=self.reset_to_defaults,
+            btn_box, text="Reset to Baseline", bg=theme["bg_tertiary"], fg=theme["text_primary"],
+            bd=1, relief="solid", font=("Arial", 11), cursor="hand2", command=self.reset_to_defaults,
         ).pack(side="right", fill="x", expand=True, padx=(6, 0), ipady=10)
 
         adv_card = tk.Frame(
-            right_pane,
-            bg=theme["bg_secondary"],
-            bd=1,
-            relief="solid",
-            highlightbackground=theme["border_color"],
-            highlightthickness=1,
+            right_pane, bg=theme["bg_secondary"], bd=1, relief="solid", highlightbackground=theme["border_color"],
+            highlightthickness=1
         )
-        adv_card.pack(fill="x", pady=(0, 16), ipady=16)
+        adv_card.pack(fill="x", pady=(0, 12), ipady=12)
         tk.Label(
-            adv_card,
-            text="Advanced Architecture Layers",
-            fg=theme["text_primary"],
-            bg=theme["bg_secondary"],
+            adv_card, text="Advanced Architecture Layers", fg=theme["text_primary"], bg=theme["bg_secondary"],
             font=("Arial", 11, "bold"),
-        ).pack(anchor="w", padx=20, pady=(16, 16))
+        ).pack(anchor="w", padx=20, pady=(12, 12))
 
         self.det_combo = self._create_dropdown_control(
-            adv_card,
-            "Feature Detector Engine Module",
-            ["XFeat (Local ONNX Engine)"],
-            "featureDetector",
+            adv_card, "Feature Detector Engine Module", ["XFeat (Local ONNX Engine)"], "featureDetector"
         )
         self.match_combo = self._create_dropdown_control(
-            adv_card,
-            "Descriptor Matcher Logic Subsystem",
-            ["MNN Matcher (Vectorized Core)"],
-            "descriptorMatcher",
+            adv_card, "Descriptor Matcher Logic Subsystem", ["MNN Matcher (Vectorized Core)"], "descriptorMatcher"
         )
         self.filt_combo = self._create_dropdown_control(
-            adv_card,
-            "Geometric Outlier Filtering Core",
-            ["RANSAC (OpenCV Matrix)"],
-            "outlierFilter",
+            adv_card, "Geometric Outlier Filtering Core", ["RANSAC (OpenCV Matrix)"], "outlierFilter"
         )
 
         vis_row = tk.Frame(adv_card, bg=theme["bg_secondary"])
-        vis_row.pack(fill="x", padx=20, pady=10)
+        vis_row.pack(fill="x", padx=20, pady=6)
         tk.Label(
-            vis_row,
-            text="Active Context Debug Visualization",
-            fg=theme["text_secondary"],
-            bg=theme["bg_secondary"],
+            vis_row, text="Active Context Debug Visualization", fg=theme["text_secondary"], bg=theme["bg_secondary"],
             font=("Arial", 10),
         ).pack(side="left")
 
-        self.vis_var = tk.BooleanVar(
-            value=bool(self.current_params["debugVisualization"])
-        )
+        self.vis_var = tk.BooleanVar(value=bool(self.current_params["debugVisualization"]))
         chk = tk.Checkbutton(
-            vis_row,
-            variable=self.vis_var,
-            bg=theme["bg_secondary"],
-            fg=theme["accent_green"],
-            activebackground=theme["bg_secondary"],
-            activeforeground=theme["accent_green"],
+            vis_row, variable=self.vis_var, bg=theme["bg_secondary"], fg=theme["accent_green"],
+            activebackground=theme["bg_secondary"], activeforeground=theme["accent_green"],
             selectcolor=theme["bg_success"],
-            bd=0,
-            highlightthickness=0,
-            command=self.apply_checkbox_change,
+            bd=0, highlightthickness=0, command=self.apply_checkbox_change,
         )
         chk.pack(side="right")
 
         self.monitor_card = tk.Frame(
-            right_pane,
-            bg=theme["bg_secondary"],
-            bd=1,
-            relief="solid",
-            highlightbackground=theme["border_color"],
-            highlightthickness=1,
+            right_pane, bg=theme["bg_secondary"], bd=1, relief="solid", highlightbackground=theme["border_color"],
+            highlightthickness=1
         )
         self.monitor_card.pack(fill="both", expand=True)
         tk.Label(
-            self.monitor_card,
-            text="Live Runtime Variables Monitor",
-            fg=theme["text_primary"],
-            bg=theme["bg_secondary"],
-            font=("Arial", 11, "bold"),
-        ).pack(anchor="w", padx=20, pady=(16, 12))
+            self.monitor_card, text="Live Runtime Variables Monitor", fg=theme["text_primary"],
+            bg=theme["bg_secondary"], font=("Arial", 11, "bold"),
+        ).pack(anchor="w", padx=20, pady=(12, 8))
 
         self.dump_frame = tk.Frame(self.monitor_card, bg=theme["bg_secondary"])
-        self.dump_frame.pack(fill="both", expand=True, padx=20, pady=(0, 16))
+        self.dump_frame.pack(fill="both", expand=True, padx=20, pady=(0, 12))
 
         self._init_static_monitor_rows()
         self.refresh_config_monitor_view()
 
-    def _create_slider_control(
-        self, parent, label, min_v, max_v, param_key, hint, multiplier=1
-    ) -> tuple:
+    def _create_slider_control(self, parent, label, min_v, max_v, param_key, hint, multiplier=1) -> tuple:
         row = tk.Frame(parent, bg=self.t["bg_secondary"])
-        row.pack(fill="x", padx=20, pady=8)
+        row.pack(fill="x", padx=20, pady=3)
 
         lbl_bar = tk.Frame(row, bg=self.t["bg_secondary"])
         lbl_bar.pack(fill="x")
         tk.Label(
-            lbl_bar,
-            text=label,
-            fg=self.t["text_secondary"],
-            bg=self.t["bg_secondary"],
-            font=("Arial", 10),
+            lbl_bar, text=label, fg=self.t["text_secondary"], bg=self.t["bg_secondary"], font=("Arial", 10),
         ).pack(side="left")
 
         current_v = self.current_params.get(param_key, 0) * multiplier
         entry = tk.Entry(
-            lbl_bar,
-            bg=self.t["bg_tertiary"],
-            fg=self.t["accent_green"],
-            insertbackground=self.t["accent_green"],
-            font=("Arial", 10, "bold"),
-            width=8,
-            justify="right",
-            bd=1,
-            relief="solid",
+            lbl_bar, bg=self.t["bg_tertiary"], fg=self.t["accent_green"], insertbackground=self.t["accent_green"],
+            font=("Arial", 10, "bold"), width=8, justify="right", bd=1, relief="solid",
         )
         entry.pack(side="right")
 
-        initial_text = (
-            f"{self.current_params.get(param_key, 0):.2f}"
-            if multiplier > 1
-            else str(self.current_params.get(param_key, 0))
-        )
+        # Dynamic formatting based on the multiplier required for the variable
+        if multiplier == 1000:
+            initial_text = f"{self.current_params.get(param_key, 0):.3f}"
+        elif multiplier > 1:
+            initial_text = f"{self.current_params.get(param_key, 0):.2f}"
+        else:
+            initial_text = str(self.current_params.get(param_key, 0))
         entry.insert(0, initial_text)
 
         slider = tk.Scale(
-            row,
-            from_=min_v,
-            to=max_v,
-            orient="horizontal",
-            showvalue=False,
-            bg=self.t["bg_tertiary"],
-            fg=self.t["text_primary"],
-            troughcolor=self.t["bg_primary"],
-            bd=0,
+            row, from_=min_v, to=max_v, orient="horizontal", showvalue=False,
+            bg=self.t["bg_tertiary"], fg=self.t["text_primary"], troughcolor=self.t["bg_primary"], bd=0,
             highlightthickness=0,
         )
         slider.set(int(current_v))
-        slider.pack(fill="x", pady=(4, 2))
+        slider.pack(fill="x", pady=(2, 2))
 
         is_internal_update = False
 
@@ -339,7 +272,12 @@ class CVParamsTab(tk.Frame):
             val = slider.get()
             actual_num = float(val) / multiplier if multiplier > 1 else int(val)
             entry.delete(0, "end")
-            entry.insert(0, f"{actual_num:.2f}" if multiplier > 1 else str(actual_num))
+            if multiplier == 1000:
+                entry.insert(0, f"{actual_num:.3f}")
+            elif multiplier > 1:
+                entry.insert(0, f"{actual_num:.2f}")
+            else:
+                entry.insert(0, str(actual_num))
             self.current_params[param_key] = actual_num
             self.refresh_config_monitor_view()
             is_internal_update = False
@@ -363,50 +301,33 @@ class CVParamsTab(tk.Frame):
             except ValueError:
                 is_internal_update = True
                 entry.delete(0, "end")
-                entry.insert(
-                    0,
-                    f"{current_saved_val:.2f}"
-                    if multiplier > 1
-                    else str(current_saved_val),
-                )
+                if multiplier == 1000:
+                    entry.insert(0, f"{current_saved_val:.3f}")
+                elif multiplier > 1:
+                    entry.insert(0, f"{current_saved_val:.2f}")
+                else:
+                    entry.insert(0, str(current_saved_val))
                 slider.set(int(current_saved_val * multiplier))
-                self.controller.log_ui_event(
-                    f"Manual input validation error for {param_key}", "ERROR"
-                )
+                self.controller.log_ui_event(f"Manual input validation error for {param_key}", "ERROR")
                 is_internal_update = False
 
         entry.bind("<FocusOut>", _on_entry_focus_out)
         entry.bind("<Return>", lambda e: parent.focus_set())
         tk.Label(
-            row,
-            text=hint,
-            fg=self.t["text_muted"],
-            bg=self.t["bg_secondary"],
-            font=("Arial", 8),
-            anchor="w",
+            row, text=hint, fg=self.t["text_muted"], bg=self.t["bg_secondary"], font=("Arial", 8), anchor="w",
         ).pack(fill="x")
         return slider, entry
 
-    def _create_dropdown_control(
-        self, parent, label, options, param_key
-    ) -> ttk.Combobox:
+    def _create_dropdown_control(self, parent, label, options, param_key) -> ttk.Combobox:
         row = tk.Frame(parent, bg=self.t["bg_secondary"])
-        row.pack(fill="x", padx=20, pady=8)
+        row.pack(fill="x", padx=20, pady=6)
         tk.Label(
-            row,
-            text=label,
-            fg=self.t["text_secondary"],
-            bg=self.t["bg_secondary"],
-            font=("Arial", 10),
-            anchor="w",
-        ).pack(fill="x", pady=(0, 4))
+            row, text=label, fg=self.t["text_secondary"], bg=self.t["bg_secondary"], font=("Arial", 10), anchor="w",
+        ).pack(fill="x", pady=(0, 2))
         combo = ttk.Combobox(row, values=options, state="readonly")
         combo.pack(fill="x")
         combo.set(self.current_params.get(param_key, options[0]))
-        combo.bind(
-            "<<ComboboxSelected>>",
-            lambda e, c=combo, k=param_key: self._on_dropdown_select(c, k),
-        )
+        combo.bind("<<ComboboxSelected>>", lambda e, c=combo, k=param_key: self._on_dropdown_select(c, k))
         return combo
 
     def _on_dropdown_select(self, combo: ttk.Combobox, param_key: str) -> None:
@@ -424,30 +345,22 @@ class CVParamsTab(tk.Frame):
     def _init_static_monitor_rows(self) -> None:
         blueprint = [
             ("xfeat_max_features:", "xfeatMaxFeatures", ""),
-            ("match_ratio_limit:", "matchRatio", ".2f"),
-            ("ransac_threshold:", "ransacThreshold", ".1f"),
-            ("min_inliers_count:", "minInliers", ""),
-            ("detector_module :", "featureDetector", ""),
-            ("matcher_module  :", "descriptorMatcher", ""),
-            ("filter_module   :", "outlierFilter", ""),
-            ("debug_rendering :", "debugVisualization", ""),
+            ("xfeat_conf_thresh :", "xfeatConfidenceThreshold", ".3f"),
+            ("gem_pooling_power :", "gemPoolingPower", ""),
+            ("match_ratio_limit :", "matchRatio", ".2f"),
+            ("ransac_threshold  :", "ransacThreshold", ".1f"),
+            ("min_inliers_count :", "minInliers", ""),
+            ("top_k_candidates  :", "topKCandidates", ""),
+            ("global_dist_limit :", "globalDistanceThreshold", ".2f"),
         ]
         for label_text, param_key, rule in blueprint:
             row_frame = tk.Frame(self.dump_frame, bg=self.t["bg_secondary"])
-            row_frame.pack(fill="x", pady=4)
+            row_frame.pack(fill="x", pady=2)
             tk.Label(
-                row_frame,
-                text=label_text,
-                fg=self.t["text_status"],
-                bg=self.t["bg_secondary"],
-                font=("Courier", 10),
+                row_frame, text=label_text, fg=self.t["text_status"], bg=self.t["bg_secondary"], font=("Courier", 10),
             ).pack(side="left")
             val_lbl = tk.Label(
-                row_frame,
-                text="",
-                fg=self.t["accent_green"],
-                bg=self.t["bg_secondary"],
-                font=("Courier", 10, "bold"),
+                row_frame, text="", fg=self.t["accent_green"], bg=self.t["bg_secondary"], font=("Courier", 10, "bold"),
             )
             val_lbl.pack(side="right")
             self.monitor_labels[param_key] = (val_lbl, rule)
@@ -455,9 +368,7 @@ class CVParamsTab(tk.Frame):
     def refresh_config_monitor_view(self) -> None:
         for key, (lbl, rule) in self.monitor_labels.items():
             val = self.current_params.get(key, 0)
-            text = (
-                f"{val:{rule}}" if rule and isinstance(val, (int, float)) else str(val)
-            )
+            text = f"{val:{rule}}" if rule and isinstance(val, (int, float)) else str(val)
             lbl.configure(text=text)
 
     def apply_config_changes(self) -> None:
@@ -465,21 +376,41 @@ class CVParamsTab(tk.Frame):
 
     def reset_to_defaults(self) -> None:
         self.current_params = self.controller.reset_cv_params_to_defaults()
+
         self.feat_slider.set(self.current_params["xfeatMaxFeatures"])
         self.feat_entry.delete(0, "end")
         self.feat_entry.insert(0, str(self.current_params["xfeatMaxFeatures"]))
+
+        self.conf_slider.set(int(self.current_params["xfeatConfidenceThreshold"] * 1000))
+        self.conf_entry.delete(0, "end")
+        self.conf_entry.insert(0, f"{self.current_params['xfeatConfidenceThreshold']:.3f}")
+
+        self.gem_slider.set(self.current_params["gemPoolingPower"])
+        self.gem_entry.delete(0, "end")
+        self.gem_entry.insert(0, str(self.current_params["gemPoolingPower"]))
+
         self.match_slider.set(int(self.current_params["matchRatio"] * 100))
         self.match_entry.delete(0, "end")
         self.match_entry.insert(0, f"{self.current_params['matchRatio']:.2f}")
+
         self.ransac_slider.set(int(self.current_params["ransacThreshold"] * 10))
         self.ransac_entry.delete(0, "end")
         self.ransac_entry.insert(0, f"{self.current_params['ransacThreshold']:.2f}")
+
         self.inlier_slider.set(self.current_params["minInliers"])
         self.inlier_entry.delete(0, "end")
         self.inlier_entry.insert(0, str(self.current_params["minInliers"]))
+
+        self.topk_slider.set(self.current_params["topKCandidates"])
+        self.topk_entry.delete(0, "end")
+        self.topk_entry.insert(0, str(self.current_params["topKCandidates"]))
+
+        self.gdist_slider.set(int(self.current_params["globalDistanceThreshold"] * 100))
+        self.gdist_entry.delete(0, "end")
+        self.gdist_entry.insert(0, f"{self.current_params['globalDistanceThreshold']:.2f}")
+
         self.vis_var.set(self.current_params["debugVisualization"])
         self.refresh_config_monitor_view()
-
 
 class LogsTab(tk.Frame):
     def __init__(self, parent, controller, theme):

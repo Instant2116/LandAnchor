@@ -34,7 +34,8 @@ class UAVB_Consumer:
 
     def localize(self, img_path):
         img = cv2.imread(img_path)
-        if img is None: return None
+        if img is None:
+            return None
 
         # OpenCV resize: (width, height)
         img_res = cv2.resize(img, (self.width, self.high))

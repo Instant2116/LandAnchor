@@ -1,12 +1,18 @@
 import sys
 import os
-
-
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
 from gui.app import LandAnchorApp
+from multiprocessing import freeze_support
+
+# Constants and helpers should come after standard library imports
+def get_resource_path(relative_path):
+    base_path = getattr(sys, '_MEIPASS', os.path.abspath("."))
+    return os.path.join(str(base_path), str(relative_path))
+
+# Finally, your local application imports
 
 if __name__ == "__main__":
-    
-    app = LandAnchorApp("landanchor.db")
+
+    freeze_support()
+    db_path = get_resource_path("landanchor.db")
+    app = LandAnchorApp(db_path)
     app.mainloop()

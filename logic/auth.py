@@ -77,6 +77,7 @@ class CryptographicAuthManager:
         }
 
     def generate_demo_key_file(self, file_path: str):
-        """Creates a mock file for demonstration purposes."""
+        """Creates a mock file with unique content for demonstration purposes."""
+        import secrets
         with open(file_path, "w") as f:
-            f.write("--- MOCK_KEY_DATA_CONTENT ---")
+            f.write(f"--- MOCK_KEY_DATA_CONTENT_{secrets.token_hex(16)} ---")

@@ -20,7 +20,8 @@ class ImageStandardizer:
 
         for filename in files:
             img = cv2.imread(os.path.join(self.input_dir, filename))
-            if img is None: continue
+            if img is None:
+                continue
 
             # 1. Calculate Scaling
             h, w = img.shape[:2]

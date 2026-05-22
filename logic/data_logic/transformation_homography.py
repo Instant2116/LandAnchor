@@ -65,7 +65,8 @@ def simulate_uav_wind_tilt(input_path, output_path=None, pitch=0, roll=0, yaw=0)
         z = rotated_corners[i, 2] + focal_length
 
         # Prevent division by zero if pitch is extreme
-        if z <= 0: z = 0.0001
+        if z <= 0:
+            z = 0.0001
 
         # Perspective projection formula
         pts2d[i, 0] = (rotated_corners[i, 0] * focal_length / z) + w / 2

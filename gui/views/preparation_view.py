@@ -91,7 +91,7 @@ class PreparationView(tk.Frame):
         p_title_bar.pack(fill="x", padx=16, pady=12)
         tk.Label(
             p_title_bar,
-            text="Video Frame Processing Context",
+            text="Data Frame Processing Context",
             fg=t["text_primary"],
             bg=t["bg_secondary"],
             font=("Arial", 11, "bold"),
@@ -269,8 +269,10 @@ class PreparationView(tk.Frame):
             str(cv_params.get("xfeatMaxFeatures", 0)),
             t["text_primary"],
         )
-
+        self.flight_path = []
+        self.anchor_points = []
         self.video_canvas.bind("<Configure>", lambda e: self.update_canvas_frame_view())
+
         self.refresh_ui_metrics_display()
 
     def refresh_ui_metrics_display(self) -> None:
