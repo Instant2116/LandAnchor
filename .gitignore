@@ -17,3 +17,5 @@
 /onnx/*
 /UAVLoc-M3_dataset/*
 /*.db
+/tests/test_dataset/
+/accelerated_features-0.1.rar

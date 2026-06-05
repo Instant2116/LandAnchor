@@ -50,15 +50,23 @@ class SettingsManager:
         }
 
     def _load(self) -> dict:
-        """ Reads the JSON file or returns default settings if the file is missing. """
+        """ Reads the JSON file and performs a deep merge with defaults to prevent missing keys. """
         default_config = self._get_hardcoded_defaults()
 
         if os.path.exists(self.config_path):
             try:
                 with open(self.config_path, "r", encoding="utf-8") as f:
                     file_data = json.load(f)
-                    # Merge to ensure missing keys (like 'system') are filled even if file is partially corrupt
-                    return {**default_config, **file_data}
+
+                    # Perform a deep merge for the nested dictionaries
+                    merged_config = default_config.copy()
+
+                    for section in ["theme", "cv_defaults", "system"]:
+                        if section in file_data:
+                            # Update the specific section with saved data, keeping defaults for missing keys
+                            merged_config[section].update(file_data[section])
+
+                    return merged_config
             except Exception:
                 return default_config
         return default_config

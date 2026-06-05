@@ -15,38 +15,46 @@ class LocationConsumer:
     def __init__(self, db_manager: Any, xfeat_model: Any, settings_manager: Any):
         self.db_manager = db_manager
         self.model = xfeat_model
+        self.settings_manager = settings_manager  # Save reference to reload dynamically
 
-        cv_params = settings_manager.get_cv_params()
+        # Initial parameter load
+        self._reload_parameters()
+
+        # Step 1: In-memory cache for Global Descriptors
+        self.global_cache = []
+        self._load_global_cache()
+
+    def _reload_parameters(self):
+        """Dynamically pulls the latest parameters from the UI context."""
+        cv_params = self.settings_manager.get_cv_params()
         self.max_features = int(cv_params.get("xfeatMaxFeatures", 500))
         self.conf_threshold = float(cv_params.get("xfeatConfidenceThreshold", 0.005))
         self.match_ratio = float(cv_params.get("matchRatio", 0.75))
         self.ransac_thresh = float(cv_params.get("ransacThreshold", 3.0))
         self.min_inliers = int(cv_params.get("minInliers", 15))
         self.top_k = int(cv_params.get("topKCandidates", 5))
+        self.global_dist_thresh = float(cv_params.get("globalDistanceThreshold", 0.4))
 
-        # Step 1: In-memory cache for Global Descriptors
-        self.global_cache = []
-        self._load_global_cache()
+        if hasattr(self.model, 'set_gem_p'):
+            self.model.set_gem_p(int(cv_params.get("gemPoolingPower", 3)))
 
     def _load_global_cache(self) -> None:
         raw_globals = self.db_manager.get_all_global_descriptors()
         for l_id, gem_blob in raw_globals:
             db_gem = blob_to_array(gem_blob, dtype=np.float32)
             self.global_cache.append((l_id, db_gem))
-
         logger.info(f"Loaded {len(self.global_cache)} landmarks into Global Cache.")
 
     def localize(self, img_input: Any) -> Optional[Dict[str, Any]]:
-        # Accept either string path or pre-loaded cv2 matrix
+        # Reload parameters to instantly apply UI slider changes
+        self._reload_parameters()
+
         if isinstance(img_input, str):
             img = cv2.imread(img_input)
-            logger.info(f"\n--- Processing File: {img_input} ---")
         else:
             img = img_input
-            logger.info("\n--- Processing New Frame Stream ---")
 
         if img is None:
-            logger.error("Failed to load image matrix.")
             return None
 
         img_res = cv2.resize(img, (320, 320))
@@ -60,18 +68,13 @@ class LocationConsumer:
 
         valid_indices = np.where(scores > self.conf_threshold)[0]
         if len(valid_indices) > self.max_features:
-            valid_indices = np.argsort(scores)[-self.max_features :]
+            valid_indices = np.argsort(scores)[-self.max_features:]
 
         live_desc = desc[valid_indices]
         live_kpts = kpts[valid_indices]
 
-        logger.info(
-            f"Extracted {len(live_desc)} local features (Threshold: {self.conf_threshold})."
-        )
-
         # Step 3: Fast Global Search (L2 Distance)
         if not self.global_cache:
-            logger.warning("Global cache is empty! The database has no records.")
             return None
 
         distances = []
@@ -82,9 +85,13 @@ class LocationConsumer:
         distances.sort(key=lambda x: x[1])
         top_candidates = distances[: self.top_k]
 
-        logger.info(
-            f"Top 1 Candidate ID: {top_candidates[0][0]} with GeM Distance: {top_candidates[0][1]:.4f}"
-        )
+        # --- THE FIX: GLOBAL DISTANCE THRESHOLD FILTER ---
+        # If the ABSOLUTE best global match is further away mathematically
+        # than the UI slider allows, abort early. This saves massive CPU time.
+        if top_candidates[0][1] > self.global_dist_thresh:
+            logger.warning(
+                f"<<< EARLY EXIT: Best candidate GeM Distance ({top_candidates[0][1]:.4f}) exceeded threshold ({self.global_dist_thresh}).")
+            return None
 
         best_match_data = None
         highest_inliers = 0
@@ -102,10 +109,6 @@ class LocationConsumer:
 
             inlier_count, _, pts_live, pts_db = verify_matches_ransac(
                 live_kpts, db_kpts, raw_matches, self.ransac_thresh, self.min_inliers
-            )
-
-            logger.info(
-                f"  Candidate {rank + 1} (ID {landmark_id}): MNN Matches={len(raw_matches)}, RANSAC Inliers={inlier_count}"
             )
 
             # Step 5: Identify Best Match
@@ -128,16 +131,18 @@ class LocationConsumer:
 
         # Step 7: Return Coordinates and Rotation
         if best_match_data:
-            logger.info(
-                f">>> SUCCESS! Matched ID {best_match_data['landmark_id']} with {best_match_data['inliers']} inliers."
-            )
             self.db_manager.touch_landmark_metadata(best_match_data["landmark_id"])
             return best_match_data
 
-        logger.warning(
-            "<<< TARGET LOST. No candidate met the RANSAC minimum inliers threshold."
-        )
         return None
+
+    def _load_global_cache(self) -> None:
+        raw_globals = self.db_manager.get_all_global_descriptors()
+        for l_id, gem_blob in raw_globals:
+            db_gem = blob_to_array(gem_blob, dtype=np.float32)
+            self.global_cache.append((l_id, db_gem))
+
+        logger.info(f"Loaded {len(self.global_cache)} landmarks into Global Cache.")
 
     def _match_descriptors(self, desc1: np.ndarray, desc2: np.ndarray) -> list:
         # Fast dot product for Cosine Similarity -> Euclidean Distance

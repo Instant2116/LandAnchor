@@ -11,6 +11,10 @@ def extract_relative_rotation(
     Calculates the 2D rotation angle between two sets of matched points.
     Assumes nadir view where transformation is primarily affine (scale, rotation, translation).
     """
+    # ДОДАНО: Захист від порожніх або недостатніх масивів точок (потрібно мінімум 2)
+    if pts_live.size == 0 or pts_db.size == 0 or len(pts_live) < 2 or len(pts_db) < 2:
+        return 0.0
+
     # Estimate a partial 2D affine transformation (4 DOF)
     matrix, _ = cv2.estimateAffinePartial2D(pts_db, pts_live)
 
@@ -22,7 +26,6 @@ def extract_relative_rotation(
     angle_degrees = math.degrees(angle_radians)
 
     return angle_degrees
-
 
 def verify_matches_ransac(
         live_kpts: np.ndarray,

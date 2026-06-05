@@ -134,10 +134,6 @@ class DataProcessor:
         worker_thread.start()
 
     def _pipeline_worker_thread(self, target_dir: str, queue: list) -> None:
-        """
-        Executes ONNX processing and delegates database commits to the DBManager.
-        Triggers thread-safe UI updates on the main thread via .after().
-        """
         try:
             total_items = len(queue)
             total_features = 0
@@ -146,15 +142,30 @@ class DataProcessor:
 
             cv_params = self.settings_manager.get_cv_params()
             max_features_limit = int(cv_params.get("xfeatMaxFeatures", 500))
-            confidence_threshold = float(
-                cv_params.get("xfeatConfidenceThreshold", 0.005)
-            )
+            confidence_threshold = float(cv_params.get("xfeatConfidenceThreshold", 0.005))
+            deduplication_threshold = float(cv_params.get("temporalDeduplicationThreshold", 0.05))
+            gem_p = int(cv_params.get("gemPoolingPower", 3))
+            gem_distance_threshold = float(cv_params.get("globalDistanceThreshold", 0.06))
 
+            if self.model:
+                self.model.set_gem_p(gem_p)
+
+            # --- ПУНКТ 5: ЧАСОВА СТАБІЛІЗАЦІЯ КАРТИ (LIFELONG MAPPING) ---
+            # Завантажуємо історичну базу для уникнення дублікатів при повторних прогонах
+            self.logger.info("Loading historical map state for temporal deduplication...")
+            existing_globals_raw = self.db_manager.get_all_global_descriptors()
+            historical_gems = []
+            for l_id, gem_blob in existing_globals_raw:
+                historical_gems.append((l_id, self.db_manager.blob_to_array(gem_blob, dtype=np.float32)))
+
+            # Лічильник для відображення оновлених (а не доданих) орієнтирів
+            total_updated = 0
+
+            last_saved_gem = None
             self.logger.info(f"Initiating extraction for {total_items} queued images.")
 
             for current_index, node in enumerate(queue):
                 if not self.is_running:
-                    self.logger.info("Pipeline processing aborted by system flag.")
                     break
 
                 image_target_path = os.path.join(target_dir, node["id"])
@@ -167,15 +178,13 @@ class DataProcessor:
 
                     if img is not None:
                         img_res = cv2.resize(img, (320, 320))
-
                         inference_results = self.model.process(img_res)
 
-                        # Flatten all dense tensors to 1D/2D arrays BEFORE slicing
                         scores = inference_results["scores"].reshape(-1)
                         desc = inference_results["desc"].reshape(-1, 64)
                         kpts = inference_results["kpts"].reshape(-1, 2)
+                        gem_vector = inference_results["global"].reshape(-1)
 
-                        # Utilize the parameterized confidence threshold
                         valid_indices = np.where(scores > confidence_threshold)[0]
                         if len(valid_indices) > max_features_limit:
                             valid_indices = np.argsort(scores)[-max_features_limit:]
@@ -185,46 +194,63 @@ class DataProcessor:
                         kpts_count = len(valid_indices)
 
                         if kpts_count > 0:
-                            gem_vector = inference_results["global"]
-                            current_timestamp = datetime.datetime.now().strftime(
-                                "%Y-%m-%d %H:%M:%S"
-                            )
-                            coordinates = (
-                                node["lon"],
-                                node["lat"],
-                                node["rel_alt"],
-                                node["yaw"],
-                            )
+                            is_keyframe = False
 
-                            try:
-                                # Delegate database insertion strictly to the Data Layer
-                                self.db_manager.insert_landmark_transaction(
-                                    coordinates=coordinates,
-                                    global_desc=gem_vector.tobytes(),
-                                    local_features=filtered_descriptors.tobytes(),
-                                    keypoints=filtered_keypoints.tobytes(),
-                                    timestamp=current_timestamp,
-                                )
-                            except Exception as e:
-                                self.logger.error(
-                                    f"Database insertion failed for node {node['id']}: {e}"
-                                )
+                            if last_saved_gem is None:
+                                is_keyframe = True
+                            else:
+                                gem_distance = np.linalg.norm(gem_vector - last_saved_gem)
+                                if gem_distance > gem_distance_threshold:
+                                    is_keyframe = True
 
-                        # Convert OpenCV BGR matrix directly to PIL RGB for UI rendering
+                            if is_keyframe:
+                                current_timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+                                # --- ЛОГІКА ДЕДУПЛІКАЦІЇ ---
+                                is_duplicate = False
+                                duplicate_id = None
+
+                                if historical_gems:
+                                    # Рахуємо відстані до всієї існуючої БД
+                                    distances = [np.linalg.norm(gem_vector - db_gem) for _, db_gem in historical_gems]
+                                    min_idx = np.argmin(distances)
+                                    min_dist = distances[min_idx]
+
+                                    if min_dist < deduplication_threshold:
+                                        is_duplicate = True
+                                        duplicate_id = historical_gems[min_idx][0]
+
+                                if is_duplicate:
+                                    # Оновлюємо історичний запис (стабілізація в часі)
+                                    self.db_manager.touch_landmark_metadata(duplicate_id)
+                                    total_updated += 1
+                                    last_saved_gem = historical_gems[min_idx][1]
+                                else:
+                                    # Записуємо новий унікальний орієнтир
+                                    coordinates = (node["lon"], node["lat"], node["rel_alt"], node["yaw"])
+                                    try:
+                                        new_id = self.db_manager.insert_landmark_transaction(
+                                            coordinates=coordinates,
+                                            global_desc=gem_vector.tobytes(),
+                                            local_features=filtered_descriptors.tobytes(),
+                                            keypoints=filtered_keypoints.tobytes(),
+                                            timestamp=current_timestamp,
+                                        )
+                                        last_saved_gem = gem_vector
+                                        historical_gems.append((new_id, gem_vector))  # Додаємо в локальний кеш
+                                        total_keyframes += 1
+                                    except Exception as e:
+                                        self.logger.error(f"Database insertion failed for node {node['id']}: {e}")
+
+                        total_features += kpts_count
+                        if kpts_count > 0:
+                            total_landmarks += 1
+
                         img_rgb = cv2.cvtColor(img_res, cv2.COLOR_BGR2RGB)
                         pil_frame = Image.fromarray(img_rgb)
 
-                # Update operational metrics
-                total_features += kpts_count
-                if kpts_count > 0:
-                    total_landmarks += 1
-                if current_index % 3 == 0 and kpts_count > 0:
-                    total_keyframes += 1
-
-                progress_ratio = ((current_index + 1) / total_items) * 100
-
                 # --- STATE CACHING ---
-                # Save the exact state to the persistent manager before pushing to the UI
+                progress_ratio = ((current_index + 1) / total_items) * 100
                 self.last_update_data = {
                     "progress_ratio": progress_ratio,
                     "total_features": total_features,
@@ -235,7 +261,6 @@ class DataProcessor:
                     "frame_pil": pil_frame,
                 }
 
-                # Push UI update to the main Tkinter thread safely
                 if self.active_view and self.active_view.winfo_exists():
                     self.active_view.after(
                         0,
@@ -243,13 +268,14 @@ class DataProcessor:
                         self.last_update_data,
                     )
 
+            self.logger.info(
+                f"Dataset processed. Inserted: {total_keyframes}. Updated (Temporal Stability): {total_updated}")
+
         except Exception as e:
             self.logger.error(f"Pipeline worker thread crashed: {e}", exc_info=True)
 
         finally:
-            self.logger.info(
-                "Pipeline processing finished or terminated. Resetting flags."
-            )
+            self.logger.info("Pipeline processing finished or terminated. Resetting flags.")
             self.is_running = False
             if self.active_view and self.active_view.winfo_exists():
                 self.active_view.after(0, self.active_view.ui_signal_process_complete)

@@ -21,14 +21,9 @@ class LandAnchorApp(tk.Tk):
         self.geometry("1440x850")
         self.minsize(1280, 720)
 
-
-
-        # Load configuration first
+        # Load first
         self.settings_manager = SettingsManager("system_preferences.json")
         self.config = self.settings_manager.data
-
-
-
 
         self.configure(bg=self.config["theme"]["bg_primary"])
 
@@ -183,18 +178,16 @@ class LandAnchorApp(tk.Tk):
 
     # --- AUTH & DB HELPERS ---
     def generate_demo_hardware_key(self, path: str, view: AuthorizationView) -> None:
-        # 1. Generate the physical file on disk with unique entropy
+        # Generate the physical file on disk with unique entropy
         self.auth_manager.generate_demo_key_file(path)
 
-        # 2. Register the token in the database
-        # The role MUST be exactly 'Operator' or 'Technician' to satisfy the Foreign Key constraint
+        # The role MUST be exactly 'Operator' or 'Technician' to satisfy the FK constraint
         registration_success = self.auth_manager.register_new_token_offline(
             file_path=path,
             proposed_username="Demo_User",
             target_role="Technician"
         )
-
-        # 3. Signal the UI based on database transaction success
+        # 3. Signal the UI
         if registration_success:
             view.ui_signal_demo_key_generated()
         else:
