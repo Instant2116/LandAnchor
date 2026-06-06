@@ -22,59 +22,69 @@ class DBManager:
             cursor = conn.cursor()
 
             cursor.execute("""
-                           CREATE TABLE IF NOT EXISTS Roles (
-                                                                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                                                name TEXT UNIQUE NOT NULL
+                           CREATE TABLE IF NOT EXISTS Roles
+                           (
+                               id   INTEGER PRIMARY KEY AUTOINCREMENT,
+                               name TEXT UNIQUE NOT NULL
                            );
                            """)
 
             cursor.execute("""
-                           CREATE TABLE IF NOT EXISTS Users (
-                                                                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                                                username TEXT UNIQUE NOT NULL,
-                                                                password_hash TEXT NOT NULL,
-                                                                role_id INTEGER NOT NULL,
-                                                                FOREIGN KEY (role_id) REFERENCES Roles(id) ON DELETE RESTRICT
+                           CREATE TABLE IF NOT EXISTS Users
+                           (
+                               id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                               username      TEXT UNIQUE NOT NULL,
+                               password_hash TEXT        NOT NULL,
+                               role_id       INTEGER     NOT NULL,
+                               FOREIGN KEY (role_id) REFERENCES Roles (id) ON DELETE RESTRICT
                            );
                            """)
 
             cursor.execute("""
-                           CREATE TABLE IF NOT EXISTS Landmarks (
-                                                                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                                                    coordinate_x REAL NOT NULL,
-                                                                    coordinate_y REAL NOT NULL,
-                                                                    coordinate_z REAL NOT NULL,
-                                                                    azimuth REAL NOT NULL
+                           CREATE TABLE IF NOT EXISTS Landmarks
+                           (
+                               id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                               coordinate_x REAL NOT NULL,
+                               coordinate_y REAL NOT NULL,
+                               coordinate_z REAL NOT NULL,
+                               azimuth      REAL NOT NULL
                            );
                            """)
 
             cursor.execute("""
-                           CREATE TABLE IF NOT EXISTS GlobalDescriptors (
-                                                                            landmark_id INTEGER PRIMARY KEY,
-                                                                            global_vector BLOB NOT NULL,
-                                                                            FOREIGN KEY (landmark_id) REFERENCES Landmarks(id) ON DELETE CASCADE
+                           CREATE TABLE IF NOT EXISTS GlobalDescriptors
+                           (
+                               landmark_id   INTEGER PRIMARY KEY,
+                               global_vector BLOB NOT NULL,
+                               FOREIGN KEY (landmark_id) REFERENCES Landmarks (id) ON DELETE CASCADE
                            );
                            """)
 
             cursor.execute("""
-                           CREATE TABLE IF NOT EXISTS LocalFeatures (
-                                                                        landmark_id INTEGER PRIMARY KEY,
-                                                                        local_features BLOB NOT NULL,
-                                                                        keypoints BLOB NOT NULL,
-                                                                        FOREIGN KEY (landmark_id) REFERENCES GlobalDescriptors(landmark_id) ON DELETE CASCADE
+                           CREATE TABLE IF NOT EXISTS LocalFeatures
+                           (
+                               landmark_id    INTEGER PRIMARY KEY,
+                               local_features BLOB NOT NULL,
+                               keypoints      BLOB NOT NULL,
+                               FOREIGN KEY (landmark_id) REFERENCES GlobalDescriptors (landmark_id) ON DELETE CASCADE
                            );
                            """)
 
             cursor.execute("""
-                           CREATE TABLE IF NOT EXISTS LandmarkMetadata (
-                                                                           landmark_id INTEGER PRIMARY KEY,
-                                                                           created_at TEXT NOT NULL,
-                                                                           FOREIGN KEY (landmark_id) REFERENCES LocalFeatures(landmark_id) ON DELETE CASCADE
+                           CREATE TABLE IF NOT EXISTS LandmarkMetadata
+                           (
+                               landmark_id INTEGER PRIMARY KEY,
+                               created_at  TEXT NOT NULL,
+                               FOREIGN KEY (landmark_id) REFERENCES LocalFeatures (landmark_id) ON DELETE CASCADE
                            );
                            """)
 
-            cursor.execute("INSERT OR IGNORE INTO Roles (name) VALUES ('Operator');")
-            cursor.execute("INSERT OR IGNORE INTO Roles (name) VALUES ('Technician');")
+            # --- FIX: EXPLICIT VERIFICATION ---
+            # Bypasses potential missing UNIQUE constraints in legacy database files
+            for role in ['Operator', 'Technician']:
+                cursor.execute("SELECT id FROM Roles WHERE name = ?;", (role,))
+                if not cursor.fetchone():
+                    cursor.execute("INSERT INTO Roles (name) VALUES (?);", (role,))
 
             conn.commit()
 

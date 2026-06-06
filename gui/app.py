@@ -8,8 +8,8 @@ from logic.logger import SystemLogger
 from logic.settings_manager import SettingsManager
 from logic.operator_manager import OperatorManager
 
-from gui.views.auth_view import AuthorizationView
-from gui.views.operator_view import OperatorDashboardView
+from gui.views.auth_view import AuthView
+from gui.views.operator_view import OperatorView
 from gui.views.preparation_view import PreparationView
 from gui.views.settings_view import SettingsView
 from logic.data_processor import DataProcessor
@@ -49,7 +49,7 @@ class LandAnchorApp(tk.Tk):
 
         self.nav_buttons = {}
         self._build_sidebar_layout()
-        self.show_view("Authorization", AuthorizationView)
+        self.show_view("Authorization", AuthView)
 
         self.settings_manager = SettingsManager("system_preferences.json")
         self.config = self.settings_manager.data
@@ -139,7 +139,7 @@ class LandAnchorApp(tk.Tk):
 
     def _handle_navigation(self, target_view: str) -> None:
         if target_view == "Authorization":
-            self.show_view("Authorization", AuthorizationView)
+            self.show_view("Authorization", AuthView)
             return
         if not self.is_hardware_key_valid:
             messagebox.showwarning(
@@ -149,7 +149,7 @@ class LandAnchorApp(tk.Tk):
             return
 
         if target_view == "Operator Dashboard":
-            self.show_view("Operator Dashboard", OperatorDashboardView)
+            self.show_view("Operator Dashboard", OperatorView)
         elif target_view == "Preparation":
             self.show_view("Preparation", PreparationView)
         elif target_view == "Settings":
@@ -177,7 +177,7 @@ class LandAnchorApp(tk.Tk):
         self.current_frame.pack(fill="both", expand=True)
 
     # --- AUTH & DB HELPERS ---
-    def generate_demo_hardware_key(self, path: str, view: AuthorizationView) -> None:
+    def generate_demo_hardware_key(self, path: str, view: AuthView) -> None:
         # Generate the physical file on disk with unique entropy
         self.auth_manager.generate_demo_key_file(path)
 
@@ -189,18 +189,18 @@ class LandAnchorApp(tk.Tk):
         )
         # 3. Signal the UI
         if registration_success:
-            view.ui_signal_demo_key_generated()
+            view.show_demo_generated()  # UPDATED from ui_signal_demo_key_generated
         else:
-            view.ui_signal_auth_failure("Database registration for demo key failed.")
+            view.show_auth_failure("Database registration for demo key failed.")  # UPDATED from ui_signal_auth_failure
 
-    def validate_hardware_key(self, path: str, view_callback: AuthorizationView) -> None:
+    def validate_hardware_key(self, path: str, view_callback: AuthView) -> None:
         user = self.auth_manager.authenticate_by_token(path)
         if user:
             self.current_user = user
             self.is_hardware_key_valid = True
-            view_callback.ui_signal_auth_success(user["username"])
+            view_callback.show_auth_success(user["username"])  # UPDATED from ui_signal_auth_success
         else:
-            view_callback.ui_signal_auth_failure("Invalid or expired hardware token.")
+            view_callback.show_auth_failure("Invalid or expired hardware token.")  # UPDATED from ui_signal_auth_failure
 
     def get_database_filename_node(self) -> str:
         return self.db_manager.get_database_filename_node()

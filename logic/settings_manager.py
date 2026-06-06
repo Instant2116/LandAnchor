@@ -37,6 +37,7 @@ class SettingsManager:
                 "minInliers": 15,
                 "topKCandidates": 5,
                 "globalDistanceThreshold": 0.4,
+                "temporalDeduplicationThreshold": 0.05,
                 "featureDetector": "XFeat (Local ONNX Engine)",
                 "descriptorMatcher": "MNN Matcher (Vectorized Core)",
                 "outlierFilter": "RANSAC (OpenCV Matrix)",
