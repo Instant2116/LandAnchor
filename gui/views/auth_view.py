@@ -18,8 +18,7 @@ class AuthView(tk.Frame):
             controller: The application controller.
         """
         self.controller = controller
-        self.theme = controller.config["theme"]
-
+        self.theme = controller.app_config["theme"]
         super().__init__(parent, bg=self.theme["bg_primary"])
 
         self._build_ui()
@@ -107,7 +106,7 @@ class AuthView(tk.Frame):
             relief="solid",
             font=("Arial", 11),
         )
-        self.path_input.insert(0, self.controller.config["system"]["default_key_name"])
+        self.path_input.insert(0, self.controller.app_config["system"]["default_key_name"])
         self.path_input.pack(fill="x", padx=40, pady=(6, 4), ipady=10)
 
         tk.Button(

@@ -1,6 +1,5 @@
 import os
 import cv2
-import logging
 import threading
 import datetime
 import time
@@ -12,6 +11,7 @@ from PIL import Image
 from logic.xfeat_core import XFeatCore
 from logic.geometry_utils import verify_matches_ransac
 from db.db_manager import DBManager
+from logic.logger import SystemLogger
 
 
 class DataProcessor:
@@ -19,7 +19,7 @@ class DataProcessor:
         self.db_manager = db_manager
         self.settings_manager = settings_manager
         self.model = None
-        self.logger = logging.getLogger("DataProcessor")
+        self.logger = SystemLogger()
 
         self.active_view = None
         self.last_update_data = None
@@ -42,10 +42,10 @@ class DataProcessor:
         self.register_view(view_callback)
 
         if self.is_running:
-            self.logger.warning("Pipeline is already running.")
+            self.logger.warn("Processing pipeline is currently locked by an active thread.")
             return
 
-        self.logger.info(f"Starting pipeline for directory: {target_dir}")
+        self.logger.info(f"Initiating feature extraction pipeline for target directory: {target_dir}")
         dataset_name = os.path.basename(os.path.normpath(target_dir))
 
         main_xlsx_path = os.path.join(target_dir, f"{dataset_name}.xlsx")
@@ -53,11 +53,11 @@ class DataProcessor:
         model_path = "onnx/xfeat_static_320.onnx"
 
         if not os.path.exists(main_xlsx_path) or not os.path.exists(dem_xlsx_path):
-            self.logger.error("Required telemetry files do not exist.")
+            self.logger.error("Telemetry metadata files missing from target directory.")
             return
 
         if not os.path.exists(model_path):
-            self.logger.error(f"CRITICAL: ONNX model not found at {model_path}")
+            self.logger.error(f"CRITICAL: ONNX model weights not found at {model_path}")
             return
 
         if self.model is None:
@@ -93,7 +93,7 @@ class DataProcessor:
                     }
                 )
         except Exception as e:
-            self.logger.error(f"Excel processing failed: {e}")
+            self.logger.error(f"Telemetry data parsing failed: {e}")
             return
 
         if not processing_queue:
@@ -121,7 +121,7 @@ class DataProcessor:
             confidence_accumulator = 0.0
 
             self.logger.info(
-                "Loading historical map state for temporal deduplication..."
+                "Loading historical generalized mean (GeM) descriptor states for temporal deduplication..."
             )
             existing_globals_raw = self.db_manager.get_all_global_descriptors()
             historical_gems = []
@@ -264,9 +264,6 @@ class DataProcessor:
                                         duplicate_id
                                     )
                                     total_updated += 1
-                                    self.logger.info(
-                                        f"Duplicate frame filtered: {node['id']}"
-                                    )
                                 else:
                                     coordinates = (
                                         node["lon"],
@@ -289,7 +286,7 @@ class DataProcessor:
                                         total_keyframes += 1
                                     except Exception as e:
                                         self.logger.error(
-                                            f"Database insertion failed for node {node['id']}: {e}"
+                                            f"Database transaction failed during landmark insertion for tensor node {node['id']}: {e}"
                                         )
 
                         total_features += kpts_count
@@ -328,14 +325,14 @@ class DataProcessor:
                 time.sleep(0.005)
 
             self.logger.info(
-                f"Dataset processed. Inserted: {total_keyframes}. Updated (Temporal Stability): {total_updated}"
+                f"Pipeline execution finalized. Keyframes inserted: {total_keyframes}. Temporal duplicates deduplicated: {total_updated}."
             )
 
         except Exception as e:
-            self.logger.error(f"Pipeline worker thread crashed: {e}", exc_info=True)
+            self.logger.error(f"Pipeline worker thread encountered a fatal exception: {e}")
 
         finally:
-            self.logger.info("Pipeline processing finished. Resetting flags.")
+            self.logger.info("Pipeline resource locks released.")
             self.is_running = False
             if self.active_view and self.active_view.winfo_exists():
                 self.active_view.after(0, self.active_view.ui_signal_process_complete)

@@ -22,7 +22,7 @@ class PreparationView(tk.Frame):
             controller: The application controller handling data ingestion logic.
         """
         self.controller = controller
-        self.theme: Dict[str, str] = controller.config["theme"]
+        self.theme: Dict[str, str] = controller.app_config["theme"]
 
         super().__init__(parent, bg=self.theme["bg_primary"])
 

@@ -4,7 +4,7 @@ from tkinter import ttk, filedialog
 
 class SettingsView(tk.Frame):
     def __init__(self, parent, controller):
-        t = controller.config["theme"]
+        t = controller.app_config["theme"]
         super().__init__(parent, bg=t["bg_primary"])
         self.controller = controller
         self.t = t
@@ -308,14 +308,14 @@ class CVParamsTab(tk.Frame):
         vis_row.pack(fill="x", padx=20, pady=6)
         tk.Label(
             vis_row,
-            text="Debug visualization",
+            text="Write DEBUG logs to disk",
             fg=theme["text_secondary"],
             bg=theme["bg_secondary"],
             font=("Arial", 10),
         ).pack(side="left")
 
         self.vis_var = tk.BooleanVar(
-            value=bool(self.current_params["debugVisualization"])
+            value=bool(self.current_params.get("writeDebugLogs", False))
         )
         chk = tk.Checkbutton(
             vis_row,
@@ -540,9 +540,11 @@ class CVParamsTab(tk.Frame):
 
     def apply_checkbox_change(self) -> None:
         state = bool(self.vis_var.get())
-        self.current_params["debugVisualization"] = state
-        self.controller.update_cv_param("debugVisualization", state)
-        self.refresh_config_monitor_view()
+        self.current_params["writeDebugLogs"] = state
+        self.controller.update_cv_param("writeDebugLogs", state)
+        # self.refresh_config_monitor_view() # Optional, only if added to monitor schema
+
+
 
     def _init_static_monitor_rows(self) -> None:
         blueprint = [
@@ -645,7 +647,7 @@ class CVParamsTab(tk.Frame):
         self.filt_combo.set("RANSAC + azimuth delta")
         self.current_params["outlierFilter"] = "RANSAC + azimuth delta"
 
-        self.vis_var.set(self.current_params["debugVisualization"])
+        self.vis_var.set(self.current_params["writeDebugLogs"])
         self.refresh_config_monitor_view()
 
 

@@ -20,7 +20,7 @@ FONT_MONO_LARGE = ("Courier", 14, "bold")
 class OperatorView(tk.Frame):
     def __init__(self, parent: tk.Widget, controller: Any) -> None:
         self.controller = controller
-        self.t: Dict[str, str] = controller.config["theme"]
+        self.t: Dict[str, str] = controller.app_config["theme"]
 
         super().__init__(parent, bg=self.t["bg_primary"])
 

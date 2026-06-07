@@ -14,6 +14,7 @@ from gui.views.preparation_view import PreparationView
 from gui.views.settings_view import SettingsView
 from logic.data_processor import DataProcessor
 
+
 class LandAnchorApp(tk.Tk):
     def __init__(self, db_path: str):
         super().__init__()
@@ -23,15 +24,24 @@ class LandAnchorApp(tk.Tk):
 
         # Load first
         self.settings_manager = SettingsManager("system_preferences.json")
-        self.config = self.settings_manager.data
+        self.app_config = (
+            self.settings_manager.data
+        )  # <-- Renamed to avoid Tkinter collision
 
-        self.configure(bg=self.config["theme"]["bg_primary"])
+        self.configure(bg=self.app_config["theme"]["bg_primary"])
 
         self.db_manager = DBManager(db_path)
         self.auth_manager = CryptographicAuthManager(self.db_manager)
+
         self.logger = SystemLogger()
+        write_debug = self.app_config.get("cv_defaults", {}).get(
+            "writeDebugLogs", False
+        )
+        self.logger.set_debug_file_logging(write_debug)
+
         self.operator_manager = OperatorManager(self.db_manager, self.settings_manager)
         self.data_processor = DataProcessor(self.db_manager, self.settings_manager)
+
         self.current_user = None
         self.is_hardware_key_valid = False
         self.active_view_name = None
@@ -41,20 +51,17 @@ class LandAnchorApp(tk.Tk):
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
-        self.sidebar = tk.Frame(self, bg=self.config["theme"]["bg_secondary"], bd=0)
+        self.sidebar = tk.Frame(self, bg=self.app_config["theme"]["bg_secondary"], bd=0)
         self.sidebar.grid(row=0, column=0, sticky="nsew")
 
-        self.workspace = tk.Frame(self, bg=self.config["theme"]["bg_primary"], bd=0)
+        self.workspace = tk.Frame(self, bg=self.app_config["theme"]["bg_primary"], bd=0)
         self.workspace.grid(row=0, column=1, sticky="nsew")
 
         self.nav_buttons = {}
         self._build_sidebar_layout()
         self.show_view("Authorization", AuthView)
 
-        self.settings_manager = SettingsManager("system_preferences.json")
-        self.config = self.settings_manager.data
-
-        # --- OPERATOR & PREPARATION DELEGATION ---
+    # --- OPERATOR & PREPARATION DELEGATION ---
     def register_active_operator_view(self, view_instance: object) -> None:
         self.operator_manager.register_view(view_instance)
 
@@ -70,6 +77,8 @@ class LandAnchorApp(tk.Tk):
 
     def update_cv_param(self, key: str, value: Any) -> None:
         self.settings_manager.update_cv_param(key, value)
+        if key == "writeDebugLogs":
+            self.logger.set_debug_file_logging(value)
 
     def save_configuration_profile(self) -> None:
         self.settings_manager.save()
@@ -85,30 +94,37 @@ class LandAnchorApp(tk.Tk):
         return self.logger.get_entries()
 
     def export_system_logs(self, target_path: str) -> None:
-        self.logger.export_to_file(target_path)
+        self.logger.export_logs(target_path)
 
     def clear_system_logs(self) -> None:
-        self.logger.clear_logs()
+        self.logger.clear_gui_buffer()
 
+    def destroy(self) -> None:
+        # Ensure the background logging queue listener stops safely
+        if hasattr(self, "logger"):
+            self.logger.shutdown()
+        super().destroy()
 
     # --- NAVIGATION & VIEW MANAGEMENT ---
     def _build_sidebar_layout(self) -> None:
-        header_frame = tk.Frame(self.sidebar, bg=self.config["theme"]["bg_secondary"])
+        header_frame = tk.Frame(
+            self.sidebar, bg=self.app_config["theme"]["bg_secondary"]
+        )
         header_frame.pack(fill="x", padx=24, pady=(30, 40))
 
         tk.Label(
             header_frame,
             text="Autonomus Navigation System",
-            fg=self.config["theme"]["accent_blue"],
-            bg=self.config["theme"]["bg_secondary"],
+            fg=self.app_config["theme"]["accent_blue"],
+            bg=self.app_config["theme"]["bg_secondary"],
             font=("Arial", 14, "bold"),
             anchor="w",
         ).pack(fill="x")
         tk.Label(
             header_frame,
-            text=self.config["system"]["version"],
-            fg=self.config["theme"]["text_muted"],
-            bg=self.config["theme"]["bg_secondary"],
+            text=self.app_config["system"]["version"],
+            fg=self.app_config["theme"]["text_muted"],
+            bg=self.app_config["theme"]["bg_secondary"],
             font=("Arial", 9),
             anchor="w",
         ).pack(fill="x")
@@ -124,9 +140,9 @@ class LandAnchorApp(tk.Tk):
             btn = tk.Button(
                 self.sidebar,
                 text=f"  {display_label}",
-                fg=self.config["theme"]["text_secondary"],
-                bg=self.config["theme"]["bg_secondary"],
-                activebackground=self.config["theme"]["bg_tertiary"],
+                fg=self.app_config["theme"]["text_secondary"],
+                bg=self.app_config["theme"]["bg_secondary"],
+                activebackground=self.app_config["theme"]["bg_tertiary"],
                 activeforeground="#ffffff",
                 font=("Arial", 11, "normal"),
                 anchor="w",
@@ -160,14 +176,14 @@ class LandAnchorApp(tk.Tk):
         for key, button in self.nav_buttons.items():
             if key == view_name:
                 button.configure(
-                    bg=self.config["theme"]["bg_accent"],
+                    bg=self.app_config["theme"]["bg_accent"],
                     fg="#ffffff",
                     font=("Arial", 11, "bold"),
                 )
             else:
                 button.configure(
-                    bg=self.config["theme"]["bg_secondary"],
-                    fg=self.config["theme"]["text_secondary"],
+                    bg=self.app_config["theme"]["bg_secondary"],
+                    fg=self.app_config["theme"]["text_secondary"],
                     font=("Arial", 11, "normal"),
                 )
 
@@ -183,24 +199,22 @@ class LandAnchorApp(tk.Tk):
 
         # The role MUST be exactly 'Operator' or 'Technician' to satisfy the FK constraint
         registration_success = self.auth_manager.register_new_token_offline(
-            file_path=path,
-            proposed_username="Demo_User",
-            target_role="Technician"
+            file_path=path, proposed_username="Demo_User", target_role="Technician"
         )
         # 3. Signal the UI
         if registration_success:
-            view.show_demo_generated()  # UPDATED from ui_signal_demo_key_generated
+            view.show_demo_generated()
         else:
-            view.show_auth_failure("Database registration for demo key failed.")  # UPDATED from ui_signal_auth_failure
+            view.show_auth_failure("Database registration for demo key failed.")
 
     def validate_hardware_key(self, path: str, view_callback: AuthView) -> None:
         user = self.auth_manager.authenticate_by_token(path)
         if user:
             self.current_user = user
             self.is_hardware_key_valid = True
-            view_callback.show_auth_success(user["username"])  # UPDATED from ui_signal_auth_success
+            view_callback.show_auth_success(user["username"])
         else:
-            view_callback.show_auth_failure("Invalid or expired hardware token.")  # UPDATED from ui_signal_auth_failure
+            view_callback.show_auth_failure("Invalid or expired hardware token.")
 
     def get_database_filename_node(self) -> str:
         return self.db_manager.get_database_filename_node()

@@ -2,13 +2,17 @@ import json
 import os
 from typing import Any
 
+from logic.logger import SystemLogger
+
+
 class SettingsManager:
     def __init__(self, config_path: str = "system_preferences.json"):
         self.config_path = config_path
+        self.logger = SystemLogger()
         self.data = self._load()
 
     def _get_hardcoded_defaults(self) -> dict:
-        """ Returns the structural baseline to prevent KeyErrors. """
+        """Returns the structural baseline to prevent KeyErrors."""
         return {
             "theme": {
                 "bg_primary": "#020617",
@@ -26,7 +30,7 @@ class SettingsManager:
                 "accent_red": "#ef4444",
                 "accent_yellow": "#eab308",
                 "accent_success": "#10b981",
-                "border_color": "#334155"
+                "border_color": "#334155",
             },
             "cv_defaults": {
                 "xfeatMaxFeatures": 500,
@@ -41,17 +45,17 @@ class SettingsManager:
                 "featureDetector": "XFeat (Local ONNX Engine)",
                 "descriptorMatcher": "MNN Matcher (Vectorized Core)",
                 "outlierFilter": "RANSAC (OpenCV Matrix)",
-                "debugVisualization": True
+                "writeDebugLogs": False,
             },
             "system": {
                 "app_title": "Drone Security System - LandAnchor",
                 "version": "v2.5.0",
-                "default_key_name": "hardware_key.pem"
-            }
+                "default_key_name": "hardware_key.pem",
+            },
         }
 
     def _load(self) -> dict:
-        """ Reads the JSON file and performs a deep merge with defaults to prevent missing keys. """
+        """Reads the JSON file and performs a deep merge with defaults to prevent missing keys."""
         default_config = self._get_hardcoded_defaults()
 
         if os.path.exists(self.config_path):
@@ -67,32 +71,52 @@ class SettingsManager:
                             # Update the specific section with saved data, keeping defaults for missing keys
                             merged_config[section].update(file_data[section])
 
+                    self.logger.info(
+                        f"System configuration profile loaded from: {self.config_path}"
+                    )
                     return merged_config
-            except Exception:
+            except Exception as e:
+                self.logger.error(
+                    f"Failed to parse configuration payload. Reverting to hardcoded defaults. Error: {e}"
+                )
                 return default_config
+
+        self.logger.info(
+            "Local configuration file not found. Initializing hardcoded system baseline."
+        )
         return default_config
 
     def get_cv_params(self) -> dict:
-        """ Returns the current computer vision parameter dictionary. """
+        """Returns the current computer vision parameter dictionary."""
         return self.data.get("cv_defaults", {})
 
     def update_cv_param(self, key: str, value: Any) -> None:
-        """ Updates a specific computer vision parameter in memory. """
+        """Updates a specific computer vision parameter in memory."""
         if "cv_defaults" not in self.data:
             self.data["cv_defaults"] = {}
         self.data["cv_defaults"][key] = value
+        self.logger.debug(f"Runtime configuration mutated: [{key}] -> {value}")
 
     def save(self) -> None:
-        """ Saves the current dictionary to system_preferences.json. """
-        with open(self.config_path, "w", encoding="utf-8") as f:
-            json.dump(self.data, f, indent=4)
+        """Saves the current dictionary to system_preferences.json."""
+        try:
+            with open(self.config_path, "w", encoding="utf-8") as f:
+                json.dump(self.data, f, indent=4)
+            self.logger.info(
+                f"Configuration state successfully committed to persistent storage: {self.config_path}"
+            )
+        except Exception as e:
+            self.logger.error(f"I/O error during configuration state dump: {e}")
 
     def reset_to_defaults(self) -> dict:
-        """ Restores and returns the default configuration. """
+        """Restores and returns the default configuration."""
         default_state = self._get_hardcoded_defaults()
         self.data["cv_defaults"] = default_state["cv_defaults"]
+        self.logger.info(
+            "Computer vision parameters restored to hardcoded baseline architecture."
+        )
         return self.data["cv_defaults"]
 
     def get_theme(self) -> dict:
-        """ Retrieves theme settings. """
+        """Retrieves theme settings."""
         return self.data.get("theme", {})

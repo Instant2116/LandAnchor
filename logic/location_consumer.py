@@ -1,14 +1,10 @@
 import cv2
 import numpy as np
-import logging
 from typing import Any, Dict, Optional
 
 from db.db_utils import blob_to_array
 from logic.geometry_utils import verify_matches_ransac, extract_relative_rotation
-
-# Initialize the logger
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
-logger = logging.getLogger("Localization")
+from logic.logger import SystemLogger
 
 
 class LocationConsumer:
@@ -16,6 +12,7 @@ class LocationConsumer:
         self.db_manager = db_manager
         self.model = xfeat_model
         self.settings_manager = settings_manager
+        self.logger = SystemLogger()
 
         self._reload_parameters()
 
@@ -46,7 +43,10 @@ class LocationConsumer:
             db_gem = blob_to_array(gem_blob, dtype=np.float32)
             db_gem = db_gem / (np.linalg.norm(db_gem) + 1e-8)
             self.global_cache.append((l_id, db_gem))
-        logger.info(f"Loaded {len(self.global_cache)} landmarks into Global Cache.")
+
+        self.logger.info(
+            f"Loaded {len(self.global_cache)} spatial landmark payloads into inference cache."
+        )
 
     def localize(self, img_input: Any) -> Optional[Dict[str, Any]]:
         self._reload_parameters()
@@ -57,6 +57,9 @@ class LocationConsumer:
             img = img_input
 
         if img is None:
+            self.logger.warn(
+                "Localization dropped a frame: Received null image buffer."
+            )
             return None
 
         img_res = cv2.resize(img, (320, 320))
@@ -117,6 +120,7 @@ class LocationConsumer:
                         "azimuth": round((payload["yaw"] + yaw_delta) % 360.0, 2),
                     },
                 }
+
         return None
 
     def _match_descriptors(self, desc1: np.ndarray, desc2: np.ndarray) -> list:

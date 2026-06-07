@@ -1,6 +1,5 @@
 import os
 import time
-import logging
 import threading
 import cv2
 from PIL import Image, ImageTk
@@ -11,6 +10,7 @@ if TYPE_CHECKING:
 
 from logic.xfeat_core import XFeatCore
 from logic.location_consumer import LocationConsumer
+from logic.logger import SystemLogger
 
 
 class OperatorManager:
@@ -25,7 +25,7 @@ class OperatorManager:
         self.settings_manager = settings_manager
         self.active_view: Optional["OperatorView"] = None
         self.is_running: bool = False
-        self.logger = logging.getLogger("OperatorManager")
+        self.logger = SystemLogger()
 
         self.persistent_flight_path: list = []
         self.last_t_data: Dict[str, Any] = {"confidence": 0.0}
@@ -47,16 +47,16 @@ class OperatorManager:
 
     def start_dataset_simulation(self, dataset_dir: str) -> None:
         if not self.active_view:
-            self.logger.error("Simulation Start Failed: No active UI view registered.")
+            self.logger.error("Localization simulation aborted: UI synchronization view missing.")
             return
 
         if self.is_running:
-            self.logger.warning(
-                "Simulation is already running! Ignoring new start request."
+            self.logger.warn(
+                "Telemetry stream is already active. Ignoring secondary start request."
             )
             return
 
-        self.logger.info(f"Initiating simulation for dataset: {dataset_dir}")
+        self.logger.info(f"Initializing visual telemetry simulation stream for dataset: {dataset_dir}")
         self.is_running = True
 
         try:
@@ -65,7 +65,7 @@ class OperatorManager:
             worker.start()
         except Exception as e:
             self.is_running = False
-            self.logger.error(f"Failed to spawn simulation thread: {e}")
+            self.logger.error(f"Failed to allocate background thread for telemetry stream: {e}")
 
     def stop_simulation(self) -> None:
         self.is_running = False
@@ -75,7 +75,7 @@ class OperatorManager:
             drone_dir = os.path.join(dataset_dir, "drone")
 
             if not os.path.exists(drone_dir):
-                self.logger.error(f"ABORTING: Drone directory not found at {drone_dir}")
+                self.logger.error(f"Simulation aborted: Drone capture directory unavailable at {drone_dir}")
                 return
 
             valid_extensions = (".jpg", ".jpeg", ".png")
@@ -88,12 +88,12 @@ class OperatorManager:
             )
 
             if not image_files:
-                self.logger.error(f"ABORTING: No valid images found in {drone_dir}")
+                self.logger.error(f"Simulation aborted: No valid frame buffers found in {drone_dir}")
                 return
 
             model_path = "onnx/xfeat_static_320.onnx"
             if not os.path.exists(model_path):
-                self.logger.error(f"CRITICAL: ONNX model not found at {model_path}")
+                self.logger.error(f"CRITICAL: Feature extraction ONNX weights missing at {model_path}")
                 return
 
             model = XFeatCore(model_path)
@@ -178,11 +178,11 @@ class OperatorManager:
 
         except Exception as e:
             self.logger.error(
-                f"Thread crashed due to an unexpected error: {e}", exc_info=True
+                f"Telemetry stream thread encountered a fatal exception: {e}"
             )
 
         finally:
-            self.logger.info("Simulation loop finished or terminated. Resetting flags.")
+            self.logger.info("Telemetry simulation loop finalized. Resource locks released.")
             self.is_running = False
             if self.active_view and self.active_view.winfo_exists():
                 self.active_view.after(0, self.active_view.ui_update_status, False, "")
@@ -201,7 +201,7 @@ class OperatorManager:
             self.active_view.update()
 
         except Exception as e:
-            self.logger.warning(f"UI update aborted due to closed widget: {e}")
+            self.logger.warn(f"UI synchronization dropped: Target widget destroyed or invalid. Error: {e}")
             self.is_running = False
 
     def reset_session(self) -> None:
@@ -209,7 +209,7 @@ class OperatorManager:
         Clears the current flight path and resets tracking statistics.
         Allows the user to start fresh or stack a new dataset without old data.
         """
-        self.logger.info("Resetting session: Clearing path and statistics.")
+        self.logger.info("Session reset initiated: Purging flight path and telemetry statistics.")
 
         # 1. Clear persistent lists
         self.persistent_flight_path.clear()
