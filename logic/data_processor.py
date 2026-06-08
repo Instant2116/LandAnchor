@@ -186,7 +186,7 @@ class DataProcessor:
                         kpts_count = len(valid_indices)
 
                         if kpts_count > 0:
-                            # --- STAGE 1: SEQUENTIAL RANSAC FILTER ---
+                            # filter ransac
                             is_keyframe = False
 
                             if last_saved_desc is None:
@@ -239,7 +239,7 @@ class DataProcessor:
                                 else:
                                     is_keyframe = True
 
-                            # --- STAGE 2: HISTORICAL GeM FILTER ---
+                            # GeM filter
                             if is_keyframe:
                                 current_timestamp = datetime.datetime.now().strftime(
                                     "%Y-%m-%d %H:%M:%S"

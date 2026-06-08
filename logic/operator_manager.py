@@ -107,7 +107,7 @@ class OperatorManager:
                     "VISUAL NAVIGATION ACTIVE",
                 )
 
-            # --- NEW METRICS TRACKING ---
+            # metrics tracking
             skipped_frames = 0
             lost_frames = 0
             match_count = 0
@@ -211,10 +211,10 @@ class OperatorManager:
         """
         self.logger.info("Session reset initiated: Purging flight path and telemetry statistics.")
 
-        # 1. Clear persistent lists
+
         self.persistent_flight_path.clear()
 
-        # 2. Reset telemetry state
+        # Reset telemetry state
         self.last_t_data = {
             "confidence": 0.0,
             "avg_conf": 0.0,
@@ -223,7 +223,7 @@ class OperatorManager:
         }
         self.last_map_data = None
 
-        # 3. Synchronize with UI if active
+        #Synchronize with UI if active
         if self.active_view and self.active_view.winfo_exists():
             self.active_view.flight_path = self.persistent_flight_path
             self.active_view.ui_update_telemetry(self.last_t_data)

@@ -65,7 +65,7 @@ class LocationConsumer:
         img_res = cv2.resize(img, (320, 320))
         inference = self.model.process(img_res)
 
-        # --- NORMALIZATION ---
+        # normalization
         live_gem = inference["global"].reshape(-1)
         live_gem = live_gem / (np.linalg.norm(live_gem) + 1e-8)
 
@@ -84,7 +84,7 @@ class LocationConsumer:
         if not self.global_cache:
             return None
 
-        # --- STAGE 1: GLOBAL SEARCH ---
+        # Global search
         distances = [
             (l_id, np.linalg.norm(live_gem - db_gem))
             for l_id, db_gem in self.global_cache
@@ -95,7 +95,7 @@ class LocationConsumer:
         if top_candidates[0][1] > self.global_dist_thresh:
             return None
 
-        # --- STAGE 2: RANSAC VERIFICATION ---
+        # RANSAC and verification
         for landmark_id, dist in top_candidates:
             payload = self.db_manager.get_landmark_payload(landmark_id)
             if not payload:

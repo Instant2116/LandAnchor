@@ -19,14 +19,12 @@ class XFeatCore:
 
     def set_gem_p(self, new_p):
         """Allows dynamic updating of the pooling power from the UI."""
-        # Fix: Only log if the value actually changes
         if self.gem_p != new_p:
             self.gem_p = new_p
             self.logger.debug(f"GeM pooling parameter adjusted to {new_p}")
 
     def process(self, img_320x320):
         try:
-            # 1. Inference
             tensor = (
                 np.expand_dims(np.transpose(img_320x320, (2, 0, 1)), axis=0).astype(
                     np.float32
@@ -35,11 +33,11 @@ class XFeatCore:
             )
             outputs = self.session.run(None, {"input": tensor})
 
-            # 2. Extract and Normalize
+            # Extract and normalize
             desc = outputs[0][0].reshape(64, -1).T
             desc /= np.linalg.norm(desc, axis=1, keepdims=True) + 1e-6
 
-            # 3. GeM Pooling
+            # GeM Pooling
             mean_powered = np.mean(np.power(desc, self.gem_p), axis=0)
 
             # Extract the sign and apply the fractional root only to the absolute values

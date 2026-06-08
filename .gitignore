@@ -19,3 +19,6 @@
 /*.db
 /tests/test_dataset/
 /accelerated_features-0.1.rar
+/testground/
+/logs/
+/logs/*
