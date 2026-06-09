@@ -19,14 +19,12 @@ class LandAnchorApp(tk.Tk):
     def __init__(self, db_path: str):
         super().__init__()
         self.title("Drone Navigation System - LandAnchor")
-        self.geometry("1440x850")
+        self.geometry("1440x1000")
         self.minsize(1280, 720)
 
         # Load first
         self.settings_manager = SettingsManager("system_preferences.json")
-        self.app_config = (
-            self.settings_manager.data
-        )  # <-- Renamed to avoid Tkinter collision
+        self.app_config = self.settings_manager.data
 
         self.configure(bg=self.app_config["theme"]["bg_primary"])
 
@@ -40,12 +38,19 @@ class LandAnchorApp(tk.Tk):
         self.logger.set_debug_file_logging(write_debug)
 
         self.operator_manager = OperatorManager(self.db_manager, self.settings_manager)
+
+        # Initialize processor and register agnostic thread hooks
         self.data_processor = DataProcessor(self.db_manager, self.settings_manager)
+        self.data_processor.register_hooks(
+            progress_callback=self._handle_processor_update,
+            completion_callback=self._handle_processor_complete,
+        )
 
         self.current_user = None
         self.is_hardware_key_valid = False
         self.active_view_name = None
         self.current_frame = None
+        self.prep_view = None
 
         self.grid_columnconfigure(0, weight=0, minsize=260)
         self.grid_columnconfigure(1, weight=1)
@@ -66,10 +71,32 @@ class LandAnchorApp(tk.Tk):
         self.operator_manager.register_view(view_instance)
 
     def register_preparation_view(self, view_instance: object) -> None:
-        self.data_processor.register_view(view_instance)
+        """Stores a reference to the active view to push thread-safe UI updates."""
+        self.prep_view = view_instance
 
     def start_operator_simulation(self, dataset_dir: str) -> None:
         self.operator_manager.start_dataset_simulation(dataset_dir)
+
+    def start_dataset_processing_pipeline(
+        self, target_dir: str, view_callback: object
+    ) -> None:
+        """Triggers the background extraction pipeline and locks the UI."""
+        self.register_preparation_view(view_callback)
+
+        if self.prep_view and self.prep_view.winfo_exists():
+            self.prep_view.ui_signal_process_start()
+
+        self.data_processor.start_dataset_processing_pipeline(target_dir)
+
+    def _handle_processor_update(self, payload: dict) -> None:
+        """Thread-safe bridge. Receives the payload from the background thread and routes to UI."""
+        if getattr(self, "prep_view", None) and self.prep_view.winfo_exists():
+            self.prep_view.after(0, self.prep_view.ui_signal_process_update, payload)
+
+    def _handle_processor_complete(self) -> None:
+        """Thread-safe bridge to unlock the UI once the pipeline terminates."""
+        if getattr(self, "prep_view", None) and self.prep_view.winfo_exists():
+            self.prep_view.after(0, self.prep_view.ui_signal_process_complete)
 
     # --- SETTINGS DELEGATION ---
     def get_cv_params(self) -> dict:
@@ -100,7 +127,6 @@ class LandAnchorApp(tk.Tk):
         self.logger.clear_gui_buffer()
 
     def destroy(self) -> None:
-        # Ensure the background logging queue listener stops safely
         if hasattr(self, "logger"):
             self.logger.shutdown()
         super().destroy()
@@ -194,14 +220,10 @@ class LandAnchorApp(tk.Tk):
 
     # --- AUTH & DB HELPERS ---
     def generate_demo_hardware_key(self, path: str, view: AuthView) -> None:
-        # Generate the physical file on disk with unique entropy
         self.auth_manager.generate_demo_key_file(path)
-
-        # The role MUST be exactly 'Operator' or 'Technician' to satisfy the FK constraint
         registration_success = self.auth_manager.register_new_token_offline(
             file_path=path, proposed_username="Demo_User", target_role="Technician"
         )
-        # 3. Signal the UI
         if registration_success:
             view.show_demo_generated()
         else:
@@ -226,9 +248,3 @@ class LandAnchorApp(tk.Tk):
 
     def get_active_database_metrics_report(self) -> dict:
         return self.db_manager.get_active_database_metrics_report()
-
-    def start_dataset_processing_pipeline(
-        self, target_dir: str, view_callback: object
-    ) -> None:
-
-        self.data_processor.start_dataset_processing_pipeline(target_dir, view_callback)

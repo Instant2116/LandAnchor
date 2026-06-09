@@ -19,17 +19,18 @@
     },
     "cv_defaults": {
         "xfeatMaxFeatures": 500,
-        "xfeatConfidenceThreshold": 0.005,
+        "xfeatConfidenceThreshold": 0.02,
         "gemPoolingPower": 3,
         "matchRatio": 0.65,
         "ransacThreshold": 3.0,
         "minInliers": 20,
-        "topKCandidates": 10,
+        "topKCandidates": 5,
         "globalDistanceThreshold": 0.4,
-        "temporalDeduplicationThreshold": 0.05,
+        "temporalDeduplicationThreshold": 0.15,
         "featureDetector": "XFeat (ONNX runtime)",
         "descriptorMatcher": "GeM + Lowe's ratio + MNN",
         "outlierFilter": "RANSAC + azimuth delta",
+        "writeDebugLogs": false,
         "debugVisualization": true
     },
     "system": {

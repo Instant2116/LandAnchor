@@ -16,13 +16,17 @@ class LocationConsumer:
 
         self._reload_parameters()
 
-        self.global_cache = []
-        self._load_global_cache()
+        self.global_ids = []
 
-        # FLANN setup: Randomized KD-Trees for 64-D feature vectors
+        # Persistent FLANN index for global descriptors
         index_params = dict(algorithm=1, trees=5)
         search_params = dict(checks=50)
-        self.flann = cv2.FlannBasedMatcher(index_params, search_params)
+        self.global_flann = cv2.FlannBasedMatcher(index_params, search_params)
+
+        # Brute-force matcher for stateless local descriptor verification
+        self.local_matcher = cv2.BFMatcher(cv2.NORM_L2)
+
+        self._load_global_cache()
 
     def _reload_parameters(self):
         cv_params = self.settings_manager.get_cv_params()
@@ -39,13 +43,22 @@ class LocationConsumer:
 
     def _load_global_cache(self) -> None:
         raw_globals = self.db_manager.get_all_global_descriptors()
+        global_descs = []
+
         for l_id, gem_blob in raw_globals:
             db_gem = blob_to_array(gem_blob, dtype=np.float32)
             db_gem = db_gem / (np.linalg.norm(db_gem) + 1e-8)
-            self.global_cache.append((l_id, db_gem))
+
+            self.global_ids.append(l_id)
+            global_descs.append(db_gem)
+
+        if global_descs:
+            global_descs_array = np.vstack(global_descs).astype(np.float32)
+            self.global_flann.add([global_descs_array])
+            self.global_flann.train()
 
         self.logger.info(
-            f"Loaded {len(self.global_cache)} spatial landmark payloads into inference cache."
+            f"Loaded {len(self.global_ids)} spatial landmark payloads into FLANN index."
         )
 
     def localize(self, img_input: Any) -> Optional[Dict[str, Any]]:
@@ -81,16 +94,21 @@ class LocationConsumer:
         live_desc = inference["desc"].reshape(-1, 64)[valid_indices]
         live_kpts = inference["kpts"].reshape(-1, 2)[valid_indices]
 
-        if not self.global_cache:
+        if not self.global_ids:
             return None
 
-        # Global search
-        distances = [
-            (l_id, np.linalg.norm(live_gem - db_gem))
-            for l_id, db_gem in self.global_cache
-        ]
-        distances.sort(key=lambda x: x[1])
-        top_candidates = distances[: self.top_k]
+        # Global search via trained FLANN
+        query_gem = np.float32(live_gem).reshape(1, -1)
+        search_k = min(self.top_k, len(self.global_ids))
+
+        matches = self.global_flann.knnMatch(query_gem, k=search_k)
+
+        if not matches or not matches[0]:
+            return None
+
+        top_candidates = []
+        for match in matches[0]:
+            top_candidates.append((self.global_ids[match.trainIdx], match.distance))
 
         if top_candidates[0][1] > self.global_dist_thresh:
             return None
@@ -104,9 +122,9 @@ class LocationConsumer:
             db_desc = blob_to_array(payload["local_features"], shape=(-1, 64))
             db_kpts = blob_to_array(payload["keypoints"], shape=(-1, 2))
 
-            matches = self._match_descriptors(live_desc, db_desc)
+            local_matches = self._match_descriptors(live_desc, db_desc)
             inlier_count, _, pts_live, pts_db = verify_matches_ransac(
-                live_kpts, db_kpts, matches, self.ransac_thresh, self.min_inliers
+                live_kpts, db_kpts, local_matches, self.ransac_thresh, self.min_inliers
             )
 
             if inlier_count >= self.min_inliers:
@@ -127,7 +145,7 @@ class LocationConsumer:
         if len(desc1) < 2 or len(desc2) < 2:
             return []
 
-        matches = self.flann.knnMatch(np.float32(desc1), np.float32(desc2), k=2)
+        matches = self.local_matcher.knnMatch(np.float32(desc1), np.float32(desc2), k=2)
         return [
             [m.queryIdx, m.trainIdx]
             for m, n in matches
