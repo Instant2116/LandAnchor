@@ -146,7 +146,8 @@ class DataProcessor:
                     img = cv2.imread(image_target_path)
 
                     if img is not None:
-                        # img_res = cv2.resize(img, (320, 320))
+                        img_res = img
+                        #img_res = cv2.resize(img, (320, 320)) #used when images were sub standard
                         inference_results = self.model.process(img_res)
 
                         scores = inference_results["scores"].reshape(-1)

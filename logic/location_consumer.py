@@ -19,8 +19,8 @@ class LocationConsumer:
         self.global_ids = []
 
         # Persistent FLANN index for global descriptors
-        index_params = dict(algorithm=1, trees=5)
-        search_params = dict(checks=50)
+        index_params = dict(algorithm=1, trees=4)
+        search_params = dict(checks=128)
         self.global_flann = cv2.FlannBasedMatcher(index_params, search_params)
 
         # Brute-force matcher for stateless local descriptor verification
