@@ -39,11 +39,10 @@ class DataProcessor:
         self.logger.info(f"Initiating feature extraction pipeline for target directory: {target_dir}")
         dataset_name = os.path.basename(os.path.normpath(target_dir))
 
-        main_xlsx_path = os.path.join(target_dir, f"{dataset_name}.xlsx")
-        dem_xlsx_path = os.path.join(target_dir, "location_with_dem.xlsx")
+        telemetry_xlsx_path = os.path.join(target_dir, "telemetry.xlsx")
         model_path = "onnx/xfeat_static_320.onnx"
 
-        if not os.path.exists(main_xlsx_path) or not os.path.exists(dem_xlsx_path):
+        if not os.path.exists(telemetry_xlsx_path):
             self.logger.error("Telemetry metadata files missing from target directory.")
             return
 
@@ -56,30 +55,33 @@ class DataProcessor:
 
         processing_queue = []
         try:
-            df_main = pd.read_excel(main_xlsx_path)
-            df_dem = pd.read_excel(dem_xlsx_path)
+            df_telemetry = pd.read_excel(telemetry_xlsx_path)
+            required_cols = ["id", "lon", "lat", "relative_altitude", "yaw"]
+            missing_cols = [col for col in required_cols if col not in df_telemetry.columns]
+            if missing_cols:
+                self.logger.error(f"Missing required columns in telemetry file: {missing_cols}")
+                raise ValueError(f"Missing required columns in telemetry file: {missing_cols}")
 
-            df_merged = pd.merge(df_main, df_dem, on="id", how="left")
-
-            for index, row in df_merged.iterrows():
-                img_id = str(row["id"])
+            for index, row in df_telemetry.iterrows():
+                img_id = str(row["id"]).strip()
+                # Add .jpg extension if missing
                 img_filename = img_id if img_id.lower().endswith(".jpg") else f"{img_id}.jpg"
                 relative_img_path = os.path.join("drone", img_filename)
 
-                processing_queue.append(
-                    {
-                        "id": relative_img_path,
-                        "lon": float(row["lon"]) if pd.notna(row.get("lon")) else 0.0,
-                        "lat": float(row["lat"]) if pd.notna(row.get("lat")) else 0.0,
-                        "rel_alt": float(row["relative_altitude"]) if "relative_altitude" in row and pd.notna(row["relative_altitude"]) else 0.0,
-                        "yaw": float(row["yaw"]) if "yaw" in row and pd.notna(row["yaw"]) else 0.0,
-                    }
-                )
+                processing_queue.append({
+                    "id": relative_img_path,
+                    "lon": float(row["lon"]) if pd.notna(row.get("lon")) else 0.0,
+                    "lat": float(row["lat"]) if pd.notna(row.get("lat")) else 0.0,
+                    "rel_alt": float(row["relative_altitude"]) if pd.notna(row.get("relative_altitude")) else 0.0,
+                    "yaw": float(row["yaw"]) if pd.notna(row.get("yaw")) else 0.0,
+                })
+
         except Exception as e:
             self.logger.error(f"Telemetry data parsing failed: {e}")
             return
 
         if not processing_queue:
+            self.logger.error(f"processing_queue is empty")
             return
 
         self.is_running = True

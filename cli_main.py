@@ -46,22 +46,15 @@ def process_image(consumer: LocationConsumer, image_path: Path) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Headless XFeat Location Consumer Pipeline"
-    )
+
+    parser = argparse.ArgumentParser(description="Headless XFeat Location Consumer Pipeline")
 
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("-i", "--image", type=str, help="Path to a single image file")
-    group.add_argument(
-        "-d", "--directory", type=str, help="Path to a directory of images"
-    )
+    group.add_argument("-d", "--directory", type=str, help="Path to a directory of images")
 
-    parser.add_argument(
-        "--db", type=str, required=True, help="Path to the SQLite database"
-    )
-    parser.add_argument(
-        "--model", type=str, required=True, help="Path to the XFeat ONNX model"
-    )
+    parser.add_argument("--db", type=str, required=True, help="Path to the SQLite database")
+    parser.add_argument("--model", type=str, required=True, help="Path to the XFeat ONNX model")
     parser.add_argument(
         "--config",
         type=str,
@@ -70,8 +63,6 @@ def main() -> None:
     )
 
     args = parser.parse_args()
-
-    # Initialization Phase
     try:
         db_manager = DBManager(args.db)
         settings_manager = SettingsManager(args.config)
@@ -115,3 +106,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
