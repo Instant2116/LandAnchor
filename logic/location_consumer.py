@@ -2,7 +2,6 @@ import cv2
 import numpy as np
 from typing import Any, Dict, Optional
 
-from db.db_utils import blob_to_array
 from logic.geometry_utils import verify_matches_ransac, extract_relative_rotation
 from logic.logger import SystemLogger
 
@@ -46,7 +45,8 @@ class LocationConsumer:
         global_descs = []
 
         for l_id, gem_blob in raw_globals:
-            db_gem = blob_to_array(gem_blob, dtype=np.float32)
+
+            db_gem = self.db_manager.blob_to_array(gem_blob, dtype=np.float32)
             db_gem = db_gem / (np.linalg.norm(db_gem) + 1e-8)
 
             self.global_ids.append(l_id)
@@ -83,9 +83,7 @@ class LocationConsumer:
         live_gem = live_gem / (np.linalg.norm(live_gem) + 1e-8)
 
         # Feature preparation
-        valid_indices = np.where(inference["scores"].reshape(-1) > self.conf_threshold)[
-            0
-        ]
+        valid_indices = np.where(inference["scores"].reshape(-1) > self.conf_threshold)[0]
         if len(valid_indices) > self.max_features:
             valid_indices = np.argsort(inference["scores"].reshape(-1))[
                 -self.max_features :
@@ -119,8 +117,8 @@ class LocationConsumer:
             if not payload:
                 continue
 
-            db_desc = blob_to_array(payload["local_features"], shape=(-1, 64))
-            db_kpts = blob_to_array(payload["keypoints"], shape=(-1, 2))
+            db_desc = self.db_manager.blob_to_array(payload["local_features"], shape=(-1, 64))
+            db_kpts = self.db_manager.blob_to_array(payload["keypoints"], shape=(-1, 2))
 
             local_matches = self._match_descriptors(live_desc, db_desc)
             inlier_count, _, pts_live, pts_db = verify_matches_ransac(

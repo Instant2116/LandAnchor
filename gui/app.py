@@ -7,12 +7,12 @@ from logic.auth import CryptographicAuthManager
 from logic.logger import SystemLogger
 from logic.settings_manager import SettingsManager
 from logic.operator_manager import OperatorManager
+from logic.preparation_manager import PreparationManager
 
 from gui.views.auth_view import AuthView
 from gui.views.operator_view import OperatorView
 from gui.views.preparation_view import PreparationView
 from gui.views.settings_view import SettingsView
-from logic.data_processor import DataProcessor
 
 
 class LandAnchorApp(tk.Tk):
@@ -39,12 +39,17 @@ class LandAnchorApp(tk.Tk):
 
         self.operator_manager = OperatorManager(self.db_manager, self.settings_manager)
 
-        # Initialize processor and register agnostic thread hooks
-        self.data_processor = DataProcessor(self.db_manager, self.settings_manager)
-        self.data_processor.register_hooks(
-            progress_callback=self._handle_processor_update,
-            completion_callback=self._handle_processor_complete,
+        self.preparation_manager = PreparationManager(
+            self.db_manager,
+            self.settings_manager,
+            self.app_config
         )
+        # Initialize processor and register agnostic thread hooks
+        # self.data_processor = DataProcessor(self.db_manager, self.settings_manager)
+        # self.data_processor.register_hooks(
+        #     progress_callback=self._handle_processor_update,
+        #     completion_callback=self._handle_processor_complete,
+        # )
 
         self.current_user = None
         self.is_hardware_key_valid = False
@@ -70,23 +75,27 @@ class LandAnchorApp(tk.Tk):
     def register_active_operator_view(self, view_instance: object) -> None:
         self.operator_manager.register_view(view_instance)
 
-    def register_preparation_view(self, view_instance: object) -> None:
-        """Stores a reference to the active view to push thread-safe UI updates."""
-        self.prep_view = view_instance
 
     def start_operator_simulation(self, dataset_dir: str) -> None:
         self.operator_manager.start_dataset_simulation(dataset_dir)
 
-    def start_dataset_processing_pipeline(
-        self, target_dir: str, view_callback: object
-    ) -> None:
-        """Triggers the background extraction pipeline and locks the UI."""
-        self.register_preparation_view(view_callback)
+    def start_dataset_processing_pipeline(self, target_dir: str, view_callback: object) -> None:
+        self.preparation_manager.start_dataset_processing_pipeline(target_dir, view_callback)
 
-        if self.prep_view and self.prep_view.winfo_exists():
-            self.prep_view.ui_signal_process_start()
+    # def register_preparation_view(self, view_instance: object) -> None:
+    #     """Stores a reference to the active view to push thread-safe UI updates."""
+    #     self.prep_view = view_instance
 
-        self.data_processor.start_dataset_processing_pipeline(target_dir)
+    # def start_dataset_processing_pipeline(
+    #     self, target_dir: str, view_callback: object
+    # ) -> None:
+    #     """Triggers the background extraction pipeline and locks the UI."""
+    #     self.register_preparation_view(view_callback)
+    #
+    #     if self.prep_view and self.prep_view.winfo_exists():
+    #         self.prep_view.ui_signal_process_start()
+    #
+    #     self.data_processor.start_dataset_processing_pipeline(target_dir)
 
     def _handle_processor_update(self, payload: dict) -> None:
         """Thread-safe bridge. Receives the payload from the background thread and routes to UI."""
