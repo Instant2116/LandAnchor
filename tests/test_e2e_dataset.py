@@ -1,6 +1,5 @@
 import os
 import threading
-
 import sys
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -20,12 +19,6 @@ class HeadlessUIObserver:
         self.completion_event = threading.Event()
         self.last_update_data = None
         self.started = False
-
-    def winfo_exists(self):
-        return True
-
-    def after(self, ms, func, *args):
-        func(*args)
 
     def ui_signal_process_start(self):
         self.started = True
@@ -68,7 +61,7 @@ class TestRealDatasetEndToEnd:
 
         settings.update_cv_param("globalDistanceThreshold", 0.06)
         settings.update_cv_param("temporalDeduplicationThreshold", 0.05)
-        settings.update_cv_param("xfeatConfidenceThreshold", 0.001)
+        settings.update_cv_param("xfeatConfidenceThreshold", 0.020)
 
         processor = DataProcessor(db_manager=db_manager, settings_manager=settings)
 
@@ -79,10 +72,21 @@ class TestRealDatasetEndToEnd:
 
         headless_ui = HeadlessUIObserver()
 
-        print(f"\\nStarting processing for directory: {TEST_DATASET_DIR}")
+        # Connect the DataProcessor hooks to the HeadlessUIObserver
+        processor.register_hooks(
+            progress_callback=headless_ui.ui_signal_process_update,
+            completion_callback=headless_ui.ui_signal_process_complete
+        )
+
+        print(f"\nStarting processing for directory: {TEST_DATASET_DIR}")
         processor.start_dataset_processing_pipeline(
             target_dir=TEST_DATASET_DIR
         )
+
+        # The DataProcessor does not have a 'start' hook, it sets an internal flag.
+        # We reflect that state in the observer to maintain test parity.
+        if processor.is_running:
+            headless_ui.ui_signal_process_start()
 
         assert headless_ui.started is True, (
             "Pipeline failed to start. Check DataProcessor logs."
@@ -103,7 +107,7 @@ class TestRealDatasetEndToEnd:
         total_processed = final_metrics["current_index"]
         inserted_keyframes = final_metrics["total_keyframes"]
 
-        print("\\n--- RESULTS ---")
+        print("\n--- RESULTS ---")
         print(f"Total files in Excel: {final_metrics['total_items']}")
         print(f"Processed images: {total_processed}")
         print(f"Extracted keypoints: {final_metrics['total_features']}")
