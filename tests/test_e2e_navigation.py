@@ -1,6 +1,5 @@
 import pytest
 import os
-import cv2
 import numpy as np
 import sys
 from unittest.mock import patch

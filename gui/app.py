@@ -44,18 +44,11 @@ class LandAnchorApp(tk.Tk):
             self.settings_manager,
             self.app_config
         )
-        # Initialize processor and register agnostic thread hooks
-        # self.data_processor = DataProcessor(self.db_manager, self.settings_manager)
-        # self.data_processor.register_hooks(
-        #     progress_callback=self._handle_processor_update,
-        #     completion_callback=self._handle_processor_complete,
-        # )
 
         self.current_user = None
         self.is_hardware_key_valid = False
         self.active_view_name = None
         self.current_frame = None
-        self.prep_view = None
 
         self.grid_columnconfigure(0, weight=0, minsize=260)
         self.grid_columnconfigure(1, weight=1)
@@ -82,32 +75,7 @@ class LandAnchorApp(tk.Tk):
     def start_dataset_processing_pipeline(self, target_dir: str, view_callback: object) -> None:
         self.preparation_manager.start_dataset_processing_pipeline(target_dir, view_callback)
 
-    # def register_preparation_view(self, view_instance: object) -> None:
-    #     """Stores a reference to the active view to push thread-safe UI updates."""
-    #     self.prep_view = view_instance
-
-    # def start_dataset_processing_pipeline(
-    #     self, target_dir: str, view_callback: object
-    # ) -> None:
-    #     """Triggers the background extraction pipeline and locks the UI."""
-    #     self.register_preparation_view(view_callback)
-    #
-    #     if self.prep_view and self.prep_view.winfo_exists():
-    #         self.prep_view.ui_signal_process_start()
-    #
-    #     self.data_processor.start_dataset_processing_pipeline(target_dir)
-
-    def _handle_processor_update(self, payload: dict) -> None:
-        """Thread-safe bridge. Receives the payload from the background thread and routes to UI."""
-        if getattr(self, "prep_view", None) and self.prep_view.winfo_exists():
-            self.prep_view.after(0, self.prep_view.ui_signal_process_update, payload)
-
-    def _handle_processor_complete(self) -> None:
-        """Thread-safe bridge to unlock the UI once the pipeline terminates."""
-        if getattr(self, "prep_view", None) and self.prep_view.winfo_exists():
-            self.prep_view.after(0, self.prep_view.ui_signal_process_complete)
-
-    # --- SETTINGS DELEGATION ---
+      # --- SETTINGS DELEGATION ---
     def get_cv_params(self) -> dict:
         return self.settings_manager.get_cv_params()
 

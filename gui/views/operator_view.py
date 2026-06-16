@@ -26,15 +26,28 @@ class OperatorView(tk.Frame):
 
         self.flight_path: List[Tuple[float, float]] = []
         self._current_frame: Optional[tk.PhotoImage] = None
+        self.hud_image_item = None
+        self.hud_text_item = None
+
+        self.map_grid_drawn = False
+        self.map_last_w = 0
+        self.map_last_h = 0
+
+        self.path_line_item = None
+        self.drone_blip_item = None
+        self.map_overlay_bg = None
+        self.map_overlay_text = None
+        self.map_status_text = None
+
+        # Memory Object Pool for highly efficient waypoint rendering
+        self.waypoint_pool: List[int] = []
 
         self._build_header()
         self._build_layout()
 
-        self._bind_events()
         self.controller.register_active_operator_view(self)
 
     def _build_header(self) -> None:
-        """Constructs the static title bar context."""
         title_strip = tk.Frame(self, bg=self.t["bg_primary"])
         title_strip.pack(fill="x", padx=24, pady=20)
 
@@ -57,7 +70,6 @@ class OperatorView(tk.Frame):
         )
         self.mode_subtitle.pack(fill="x")
 
-        # Create Load Button
         conn_btn = tk.Button(
             title_strip,
             text="Load Dataset",
@@ -69,10 +81,8 @@ class OperatorView(tk.Frame):
             cursor="hand2",
             command=self._on_connect_clicked,
         )
-        # Pack to the right FIRST (it will be the rightmost button)
         conn_btn.pack(side="right", padx=5)
 
-        # Create Reset Button
         reset_btn = tk.Button(
             title_strip,
             text="Clear Path & Stats",
@@ -84,13 +94,9 @@ class OperatorView(tk.Frame):
             cursor="hand2",
             command=self._on_reset_clicked,
         )
-        # Pack to the right SECOND (it will be to the left of the Load button)
         reset_btn.pack(side="right", padx=5)
 
     def _on_reset_clicked(self) -> None:
-        """Triggers a session reset through the controller."""
-        # Optional: Add a confirmation dialog if desired
-        # if tk.messagebox.askyesno("Reset Session", "Are you sure you want to clear all path data and statistics?"):
         self.controller.operator_manager.reset_session()
 
     def _build_layout(self) -> None:
@@ -214,7 +220,6 @@ class OperatorView(tk.Frame):
         )
         self.conf_status_txt.pack(side="left")
 
-        # --- NEW METRICS BLOCK ---
         metrics_frame = tk.Frame(conf_card, bg=self.t["bg_secondary"])
         metrics_frame.pack(fill="x", padx=16, pady=(16, 0))
 
@@ -235,10 +240,6 @@ class OperatorView(tk.Frame):
         val_lbl.pack(side="right")
         return val_lbl
 
-    def _bind_events(self) -> None:
-        self.hud_canvas.bind("<Configure>", lambda e: self.ui_update_hud_canvas({}))
-        self.map_canvas.bind("<Configure>", lambda e: self.ui_update_map_canvas({}))
-
     def _on_connect_clicked(self) -> None:
         target_dir = filedialog.askdirectory(
             title="Select Flight Mission Dataset Root Folder"
@@ -247,7 +248,12 @@ class OperatorView(tk.Frame):
             self.controller.start_operator_simulation(target_dir)
 
     def ui_update_telemetry(self, t_data: Dict[str, Any]) -> None:
-        # 1. Update Core Confidence
+        if not self.winfo_exists():
+            self.controller.log_ui_event(
+                "Telemetry frame dropped: Target view no longer exists in memory.",
+                "DEBUG")
+            return
+
         conf = float(t_data.get("confidence", 0.0))
         self.conf_percent_lbl.configure(text=f"{int(conf)}%")
         self.conf_progress["value"] = conf
@@ -267,21 +273,18 @@ class OperatorView(tk.Frame):
 
         self.conf_status_txt.configure(text=status_text, fg=status_color)
 
-        # 2. Update New Tracking Metrics
         avg_conf = t_data.get("avg_conf", 0.0)
         lost = t_data.get("lost_frames", 0)
         skipped = t_data.get("skipped_frames", 0)
 
         self.avg_conf_lbl.configure(text=f"{avg_conf:.1f}%", fg=self.t["accent_green"])
 
-        # Color code failures dynamically
         lost_color = self.t["accent_red"] if lost > 0 else self.t["text_primary"]
         self.lost_frames_lbl.configure(text=str(lost), fg=lost_color)
 
         skipped_color = self.t["accent_yellow"] if skipped > 0 else self.t["text_primary"]
         self.skipped_frames_lbl.configure(text=str(skipped), fg=skipped_color)
 
-        # 3. Update Visual Canvas
         self.ui_update_hud_canvas(t_data)
 
     def ui_update_status(self, is_active: bool, mode_text: str) -> None:
@@ -291,7 +294,6 @@ class OperatorView(tk.Frame):
             self.mode_subtitle.configure(text="Status: Idle", fg=self.t["text_status"])
 
     def ui_update_hud_canvas(self, t_data: Dict[str, Any]) -> None:
-        self.hud_canvas.delete("all")
         w, h = self.hud_canvas.winfo_width(), self.hud_canvas.winfo_height()
 
         if w < 10 or h < 10:
@@ -299,50 +301,82 @@ class OperatorView(tk.Frame):
 
         if t_data and t_data.get("frame_tk"):
             self._current_frame = t_data["frame_tk"]
-            self.hud_canvas.create_image(0, 0, anchor="nw", image=self._current_frame)
+
+            if self.hud_image_item is None:
+                self.hud_image_item = self.hud_canvas.create_image(0, 0, anchor="nw", image=self._current_frame)
+            else:
+                self.hud_canvas.itemconfig(self.hud_image_item, image=self._current_frame, state="normal")
+
+            if self.hud_text_item is not None:
+                self.hud_canvas.itemconfig(self.hud_text_item, state="hidden")
+
         elif not t_data:
-            self.hud_canvas.create_text(
-                w / 2,
-                h / 2,
-                text="AWAITING FRAMES",
-                fill=self.t["text_muted"],
-                font=FONT_MONO_HEADING,
-            )
+            if self.hud_image_item is not None:
+                self.hud_canvas.itemconfig(self.hud_image_item, state="hidden")
+
+            if self.hud_text_item is None:
+                self.hud_text_item = self.hud_canvas.create_text(
+                    w / 2, h / 2, text="AWAITING FRAMES", fill=self.t["text_muted"], font=FONT_MONO_HEADING
+                )
+            else:
+                self.hud_canvas.itemconfig(self.hud_text_item, state="normal", text="AWAITING FRAMES")
             return
 
         if "alt" in t_data or "hdg" in t_data:
             alt_val = t_data.get('alt', 0.0)
             hdg_val = t_data.get('hdg', 0.0)
-            self.hud_canvas.create_text(
-                20,
-                20,
-                text=f"ALT: {alt_val:.1f}m\nYAW: {hdg_val:.1f}°",
-                fill=self.t["accent_green"],
-                font=FONT_MONO_HEADING,
-                anchor="nw",
-            )
+            overlay_str = f"ALT: {alt_val:.1f}m\nYAW: {hdg_val:.1f}°"
+
+            if self.hud_text_item is None:
+                self.hud_text_item = self.hud_canvas.create_text(
+                    20, 20, text=overlay_str, fill=self.t["accent_green"], font=FONT_MONO_HEADING, anchor="nw"
+                )
+            else:
+                self.hud_canvas.coords(self.hud_text_item, 20, 20)
+                self.hud_canvas.itemconfig(
+                    self.hud_text_item, state="normal", text=overlay_str, fill=self.t["accent_green"]
+                )
 
     def ui_update_map_canvas(self, map_data: Optional[Dict[str, Any]]) -> None:
-        self.map_canvas.delete("all")
         w, h = self.map_canvas.winfo_width(), self.map_canvas.winfo_height()
 
         if w < 10 or h < 10:
             return
 
-        self._draw_map_grid(w, h)
-
-        if map_data and "lat" in map_data:
-            lat, lon = float(map_data["lat"]), float(map_data["lon"])
-            self.flight_path.append((lat, lon))
-
-            if len(self.flight_path) > 10000:
-                self.flight_path.pop(0)
+        if not self.map_grid_drawn or w != self.map_last_w or h != self.map_last_h:
+            self.map_canvas.delete("grid_line")
+            self._draw_map_grid(w, h)
+            self.map_grid_drawn = True
+            self.map_last_w = w
+            self.map_last_h = h
 
         if not self.flight_path:
-            self.map_canvas.create_text(
-                w / 2, h / 2, text="AWAITING INITIAL FIX", fill=self.t["text_muted"], font=FONT_MONO_NORMAL
-            )
+            # Hide the old continuous line and blip
+            if self.path_line_item is not None:
+                self.map_canvas.itemconfig(self.path_line_item, state="hidden")
+            if self.drone_blip_item is not None:
+                self.map_canvas.itemconfig(self.drone_blip_item, state="hidden")
+
+            # Instantly hide all items currently in the waypoint pool
+            for wp in self.waypoint_pool:
+                self.map_canvas.itemconfig(wp, state="hidden")
+
+            if self.map_status_text is None:
+                self.map_status_text = self.map_canvas.create_text(
+                    w / 2, h / 2, text="AWAITING INITIAL FIX", fill=self.t["text_muted"], font=FONT_MONO_NORMAL
+                )
+            else:
+                self.map_canvas.coords(self.map_status_text, w / 2, h / 2)
+                self.map_canvas.itemconfig(self.map_status_text, state="normal", text="AWAITING INITIAL FIX", fill=self.t["text_muted"])
             return
+
+        if self.path_line_item is not None:
+            self.map_canvas.itemconfig(self.path_line_item, state="normal")
+        if self.drone_blip_item is not None:
+            self.map_canvas.itemconfig(self.drone_blip_item, state="normal")
+
+        if self.map_status_text is not None:
+            self.map_canvas.itemconfig(self.map_status_text, state="hidden")
 
         cx, cy = self._draw_flight_path(w, h)
         self._draw_drone_blip(cx, cy)
@@ -350,15 +384,19 @@ class OperatorView(tk.Frame):
 
     def _draw_map_grid(self, w: int, h: int) -> None:
         for x in range(0, w, 50):
-            self.map_canvas.create_line(x, 0, x, h, fill=self.t["border_color"], width=1, dash=(1, 5))
+            self.map_canvas.create_line(x, 0, x, h, fill=self.t["border_color"], width=1, dash=(1, 5), tags="grid_line")
         for y in range(0, h, 50):
-            self.map_canvas.create_line(0, y, w, y, fill=self.t["border_color"], width=1, dash=(1, 5))
+            self.map_canvas.create_line(0, y, w, y, fill=self.t["border_color"], width=1, dash=(1, 5), tags="grid_line")
 
     def _draw_flight_path(self, w: int, h: int) -> Tuple[float, float]:
         all_lats = [p[0] for p in self.flight_path]
         all_lons = [p[1] for p in self.flight_path]
 
         if len(all_lats) <= 1:
+            if self.path_line_item is not None:
+                self.map_canvas.itemconfig(self.path_line_item, state="hidden")
+            for wp in self.waypoint_pool:
+                self.map_canvas.itemconfig(wp, state="hidden")
             return w / 2, h / 2
 
         min_lat, max_lat = min(all_lats), max(all_lats)
@@ -368,54 +406,79 @@ class OperatorView(tk.Frame):
         lon_range = max(max_lon - min_lon, 0.00001)
 
         padding = 40
+        flat_coords = []
+        points = []
 
-        def scale_coords(plat: float, plon: float) -> Tuple[float, float]:
+        for plat, plon in self.flight_path:
             x = padding + ((plon - min_lon) / lon_range) * (w - 2 * padding)
             y = h - (padding + ((plat - min_lat) / lat_range) * (h - 2 * padding))
-            return x, y
+            flat_coords.extend([x, y])
+            points.append((x, y))
 
-        points = [scale_coords(p[0], p[1]) for p in self.flight_path]
+        if self.path_line_item is None:
+            self.path_line_item = self.map_canvas.create_line(*flat_coords, fill=self.t["accent_green"], width=2)
+        else:
+            self.map_canvas.coords(self.path_line_item, *flat_coords)
 
-        for i in range(len(points) - 1):
-            self.map_canvas.create_line(
-                points[i][0], points[i][1], points[i + 1][0], points[i + 1][1],
-                fill=self.t["accent_green"], width=2
-            )
+        # ------------------------------------------------------------------------
+        # Object Pool execution: Keeps 100% of waypoints without killing your CPU
+        # ------------------------------------------------------------------------
+        needed = len(points)
+        current_pool_size = len(self.waypoint_pool)
 
-        for ax, ay in points:
-            self.map_canvas.create_rectangle(
-                ax - 3, ay - 3, ax + 3, ay + 3,
-                fill=self.t["bg_primary"], outline=self.t["accent_green"], width=1
-            )
+        # 1. Expand the pool if the dataset is growing
+        if needed > current_pool_size:
+            for _ in range(needed - current_pool_size):
+                new_item = self.map_canvas.create_rectangle(
+                    0, 0, 0, 0, fill=self.t["bg_primary"], outline=self.t["accent_green"], width=1, tags="waypoint"
+                )
+                self.waypoint_pool.append(new_item)
 
-        return points[-1]
+        # 2. Mathematically update coordinates for active points
+        for i in range(needed):
+            ax, ay = points[i]
+            self.map_canvas.coords(self.waypoint_pool[i], ax - 3, ay - 3, ax + 3, ay + 3)
+            self.map_canvas.itemconfig(self.waypoint_pool[i], state="normal")
+
+        # 3. Cleanly hide any overflow boxes (happens immediately after a reset)
+        for i in range(needed, current_pool_size):
+            self.map_canvas.itemconfig(self.waypoint_pool[i], state="hidden")
+
+        return flat_coords[-2], flat_coords[-1]
 
     def _draw_drone_blip(self, cx: float, cy: float) -> None:
-        self.map_canvas.create_oval(
-            cx - 6, cy - 6, cx + 6, cy + 6,
-            fill=self.t["accent_blue"], outline=self.t["text_primary"], width=2
-        )
+        if self.drone_blip_item is None:
+            self.drone_blip_item = self.map_canvas.create_oval(
+                cx - 6, cy - 6, cx + 6, cy + 6,
+                fill=self.t["accent_blue"], outline=self.t["text_primary"], width=2
+            )
+        else:
+            self.map_canvas.coords(self.drone_blip_item, cx - 6, cy - 6, cx + 6, cy + 6)
+            self.map_canvas.tag_raise(self.drone_blip_item)
 
     def _draw_overlay_box(self, w: int, h: int, map_data: Optional[Dict[str, Any]]) -> None:
         last_lat, last_lon = self.flight_path[-1]
 
-        self.map_canvas.create_rectangle(10, 10, 220, 50, fill=self.t["bg_primary"], outline=self.t["bg_tertiary"])
+        if self.map_overlay_bg is None:
+            self.map_overlay_bg = self.map_canvas.create_rectangle(
+                10, 10, 220, 50, fill=self.t["bg_primary"], outline=self.t["bg_tertiary"]
+            )
+            self.map_overlay_text = self.map_canvas.create_text(
+                18, 30, text="", font=FONT_MONO_NORMAL, anchor="w"
+            )
+
+        self.map_canvas.tag_raise(self.map_overlay_bg)
+        self.map_canvas.tag_raise(self.map_overlay_text)
 
         if map_data is None:
-            self.map_canvas.create_text(
-                18, 30, text=f"LAST LAT: {last_lat:.6f}°\nLAST LON: {last_lon:.6f}°",
-                fill=self.t["text_muted"], font=FONT_MONO_NORMAL, anchor="w"
-            )
-            self.map_canvas.create_text(
-                w / 2, h / 2 - 20, text="TRACKING LOST",
-                fill=self.t["accent_red"], font=FONT_MONO_LARGE
-            )
-            self.map_canvas.create_text(
-                w / 2, h / 2 + 10, text="Attempting to re-acquire visual lock...",
-                fill=self.t["accent_red"], font=FONT_MONO_HEADING
+            self.map_canvas.itemconfig(
+                self.map_overlay_text,
+                text=f"LAST LAT: {last_lat:.6f}°\nLAST LON: {last_lon:.6f}°",
+                fill=self.t["text_muted"]
             )
         else:
-            self.map_canvas.create_text(
-                18, 30, text=f"EST LAT: {last_lat:.6f}°\nEST LON: {last_lon:.6f}°",
-                fill=self.t["accent_green"], font=FONT_MONO_NORMAL, anchor="w"
+            self.map_canvas.itemconfig(
+                self.map_overlay_text,
+                text=f"EST LAT: {last_lat:.6f}°\nEST LON: {last_lon:.6f}°",
+                fill=self.t["accent_green"]
             )

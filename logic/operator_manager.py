@@ -31,6 +31,12 @@ class OperatorManager:
         self.last_t_data: Dict[str, Any] = {"confidence": 0.0}
         self.last_map_data: Optional[Dict[str, Any]] = None
 
+        # Lifted metrics to class state for thread-safe resetting
+        self.skipped_frames = 0
+        self.lost_frames = 0
+        self.match_count = 0
+        self.confidence_accumulator = 0.0
+
     def register_view(self, view: "OperatorView") -> None:
         self.active_view = view
         self.active_view.flight_path = self.persistent_flight_path
@@ -47,7 +53,9 @@ class OperatorManager:
 
     def start_dataset_simulation(self, dataset_dir: str) -> None:
         if not self.active_view:
-            self.logger.error("Localization simulation aborted: UI synchronization view missing.")
+            self.logger.error(
+                "Localization simulation aborted: UI synchronization view missing."
+            )
             return
 
         if self.is_running:
@@ -56,7 +64,9 @@ class OperatorManager:
             )
             return
 
-        self.logger.info(f"Initializing visual telemetry simulation stream for dataset: {dataset_dir}")
+        self.logger.info(
+            f"Initializing visual telemetry simulation stream for dataset: {dataset_dir}"
+        )
         self.is_running = True
 
         try:
@@ -65,7 +75,9 @@ class OperatorManager:
             worker.start()
         except Exception as e:
             self.is_running = False
-            self.logger.error(f"Failed to allocate background thread for telemetry stream: {e}")
+            self.logger.error(
+                f"Failed to allocate background thread for telemetry stream: {e}"
+            )
 
     def stop_simulation(self) -> None:
         self.is_running = False
@@ -75,7 +87,9 @@ class OperatorManager:
             drone_dir = os.path.join(dataset_dir, "drone")
 
             if not os.path.exists(drone_dir):
-                self.logger.error(f"Simulation aborted: Drone capture directory unavailable at {drone_dir}")
+                self.logger.error(
+                    f"Simulation aborted: Drone capture directory unavailable at {drone_dir}"
+                )
                 return
 
             valid_extensions = (".jpg", ".jpeg", ".png")
@@ -88,12 +102,16 @@ class OperatorManager:
             )
 
             if not image_files:
-                self.logger.error(f"Simulation aborted: No valid frame buffers found in {drone_dir}")
+                self.logger.error(
+                    f"Simulation aborted: No valid frame buffers found in {drone_dir}"
+                )
                 return
 
             model_path = "onnx/xfeat_static_320.onnx"
             if not os.path.exists(model_path):
-                self.logger.error(f"CRITICAL: Feature extraction ONNX weights missing at {model_path}")
+                self.logger.error(
+                    f"CRITICAL: Feature extraction ONNX weights missing at {model_path}"
+                )
                 return
 
             model = XFeatCore(model_path)
@@ -106,12 +124,6 @@ class OperatorManager:
                     True,
                     "VISUAL NAVIGATION ACTIVE",
                 )
-
-            # metrics tracking
-            skipped_frames = 0
-            lost_frames = 0
-            match_count = 0
-            confidence_accumulator = 0.0
 
             for img_name in image_files:
                 if not self.is_running:
@@ -135,8 +147,8 @@ class OperatorManager:
                             current_conf = min(100.0, (inliers / 50.0) * 100.0)
                             t_data["confidence"] = current_conf
 
-                            confidence_accumulator += current_conf
-                            match_count += 1
+                            self.confidence_accumulator += current_conf
+                            self.match_count += 1
 
                             match_coords = loc_result["coordinates"]
                             map_data = {
@@ -150,26 +162,30 @@ class OperatorManager:
                                 "azimuth", match_coords.get("yaw", 0.0)
                             )
                         else:
-                            # Frame processed, but no location matched
-                            lost_frames += 1
+                            self.lost_frames += 1
                     else:
-                        # Image file corrupted or unreadable
-                        skipped_frames += 1
+                        self.skipped_frames += 1
                 else:
-                    # Path does not exist
-                    skipped_frames += 1
+                    self.skipped_frames += 1
 
-                # Calculate averages and attach to payload
                 avg_conf = (
-                    (confidence_accumulator / match_count) if match_count > 0 else 0.0
+                    (self.confidence_accumulator / self.match_count)
+                    if self.match_count > 0
+                    else 0.0
                 )
                 t_data["avg_conf"] = avg_conf
-                t_data["skipped_frames"] = skipped_frames
-                t_data["lost_frames"] = lost_frames
+                t_data["skipped_frames"] = self.skipped_frames
+                t_data["lost_frames"] = self.lost_frames
 
                 self.last_t_data = t_data.copy()
                 if map_data:
                     self.last_map_data = map_data.copy()
+                    self.persistent_flight_path.append(
+                        (map_data["lat"], map_data["lon"])
+                    )
+
+                    if len(self.persistent_flight_path) > 10000:
+                        self.persistent_flight_path.pop(0)
 
                 if self.active_view and self.active_view.winfo_exists():
                     self.active_view.after(0, self._update_ui_sync, t_data, map_data)
@@ -182,7 +198,9 @@ class OperatorManager:
             )
 
         finally:
-            self.logger.info("Telemetry simulation loop finalized. Resource locks released.")
+            self.logger.info(
+                "Telemetry simulation loop finalized. Resource locks released."
+            )
             self.is_running = False
             if self.active_view and self.active_view.winfo_exists():
                 self.active_view.after(0, self.active_view.ui_update_status, False, "")
@@ -198,35 +216,41 @@ class OperatorManager:
 
             self.active_view.ui_update_telemetry(t_data)
             self.active_view.ui_update_map_canvas(map_data)
-            self.active_view.update()
 
         except Exception as e:
-            self.logger.warn(f"UI synchronization dropped: Target widget destroyed or invalid. Error: {e}")
+            self.logger.warn(
+                f"UI synchronization dropped: Target widget destroyed or invalid. Error: {e}"
+            )
             self.is_running = False
 
     def reset_session(self) -> None:
         """
-        Clears the current flight path and resets tracking statistics.
-        Allows the user to start fresh or stack a new dataset without old data.
+        Clears the current flight path and resets tracking statistics safely across threads.
         """
-        self.logger.info("Session reset initiated: Purging flight path and telemetry statistics.")
-
+        self.logger.info(
+            "Session reset initiated: Purging flight path and telemetry statistics."
+        )
 
         self.persistent_flight_path.clear()
 
-        # Reset telemetry state
+        self.skipped_frames = 0
+        self.lost_frames = 0
+        self.match_count = 0
+        self.confidence_accumulator = 0.0
+
         self.last_t_data = {
             "confidence": 0.0,
             "avg_conf": 0.0,
             "skipped_frames": 0,
-            "lost_frames": 0
+            "lost_frames": 0,
         }
         self.last_map_data = None
 
-        #Synchronize with UI if active
         if self.active_view and self.active_view.winfo_exists():
             self.active_view.flight_path = self.persistent_flight_path
             self.active_view.ui_update_telemetry(self.last_t_data)
             self.active_view.ui_update_map_canvas(None)
-            self.active_view.ui_update_status(self.is_running,
-                                              "SESSION RESET" if not self.is_running else "VISUAL NAVIGATION ACTIVE")
+            self.active_view.ui_update_status(
+                self.is_running,
+                "SESSION RESET" if not self.is_running else "VISUAL NAVIGATION ACTIVE",
+            )

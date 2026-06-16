@@ -37,11 +37,11 @@ class PreparationView(tk.Frame):
         self._build_header()
         self._build_main_layout()
 
-        # Register this view with the controller so progress state survives tab switching
         if hasattr(self.controller, "register_preparation_view"):
             self.controller.register_preparation_view(self)
 
         self.refresh_ui_metrics_display()
+        self.controller.preparation_manager.register_preparation_view(self)
 
     def _build_header(self) -> None:
         """Constructs the static title bar context."""
@@ -390,6 +390,11 @@ class PreparationView(tk.Frame):
         Args:
             data: Standardized payload dictionary containing frame metrics.
         """
+        if not self.winfo_exists():
+            self.controller.log_ui_event(
+                "Telemetry frame dropped: Target view no longer exists in memory.",
+                "DEBUG")
+            return
         self._last_data = data
 
         self.progress_percent_lbl.configure(

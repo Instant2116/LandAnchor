@@ -1,5 +1,5 @@
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from logic.data_processor import DataProcessor
 from db.db_manager import DBManager
@@ -17,7 +17,7 @@ class PreparationManager:
         self.app_config = app_config
 
         self.data_processor = DataProcessor(db_manager, settings_manager)
-
+        self.last_payload = None
         self.data_processor.register_hooks(
             progress_callback=self._handle_processor_update,
             completion_callback=self._handle_processor_complete,
@@ -28,6 +28,10 @@ class PreparationManager:
     def register_preparation_view(self, view: Any) -> None:
         """Stores a reference to the active view to push thread-safe UI updates."""
         self.view = view
+        if self.data_processor.is_running:
+            self.view.ui_signal_process_start()
+            if self.last_payload:
+                self.view.ui_signal_process_update(self.last_payload)
 
     def get_cv_params(self) -> Dict[str, Any]:
         """Provides the current computer vision thresholds to the UI."""

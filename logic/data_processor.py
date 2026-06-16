@@ -37,8 +37,6 @@ class DataProcessor:
             return
 
         self.logger.info(f"Initiating feature extraction pipeline for target directory: {target_dir}")
-        dataset_name = os.path.basename(os.path.normpath(target_dir))
-
         telemetry_xlsx_path = os.path.join(target_dir, "telemetry.xlsx")
         model_path = "onnx/xfeat_static_320.onnx"
 
@@ -81,7 +79,7 @@ class DataProcessor:
             return
 
         if not processing_queue:
-            self.logger.error(f"processing_queue is empty")
+            self.logger.error("processing_queue is empty")
             return
 
         self.is_running = True
