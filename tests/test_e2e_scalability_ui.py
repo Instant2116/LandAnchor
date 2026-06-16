@@ -134,8 +134,8 @@ class TestScalabilityAndUI:
             def ui_signal_process_complete(self):
                 pass
 
-        view = MockView(root)
-        processor.start_dataset_processing_pipeline(TEST_DATASET_DIR, view)
+
+        processor.start_dataset_processing_pipeline(TEST_DATASET_DIR)
 
         root.update()
         time.sleep(0.5)

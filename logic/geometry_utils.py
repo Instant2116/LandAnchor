@@ -9,21 +9,31 @@ def extract_relative_rotation(
 ) -> float:
     """
     Calculates the 2D rotation angle using a full 8-DOF Homography matrix.
-    Extracts the yaw from the uncalibrated linear sub-matrix.
+    Extracts the yaw by projecting basis vectors to account for perspective distortion.
     """
-    # Homography requires a strict minimum of 4 points to compute
     if pts_live.size == 0 or pts_db.size == 0 or len(pts_live) < 4 or len(pts_db) < 4:
         return 0.0
 
-    # Estimate a full 3D projective homography matrix (8 DOF)
-    # Method 0 is used because the points are already RANSAC-validated inliers
     matrix, _ = cv2.findHomography(pts_db, pts_live, 0)
 
     if matrix is None:
         return 0.0
 
-    # Extract rotation from the top-left affine component: atan2(H[1,0], H[0,0])
-    angle_radians = math.atan2(matrix[1, 0], matrix[0, 0])
+    # Project standard basis vectors to account for perspective scaling
+    p0 = np.array([0.0, 0.0, 1.0])
+    p1 = np.array([1.0, 0.0, 1.0])
+
+    p0_proj = matrix @ p0
+    p1_proj = matrix @ p1
+
+    # Normalize by homogeneous coordinate
+    p0_proj /= p0_proj[2]
+    p1_proj /= p1_proj[2]
+
+    dx = p1_proj[0] - p0_proj[0]
+    dy = p1_proj[1] - p0_proj[1]
+
+    angle_radians = math.atan2(dy, dx)
     angle_degrees = math.degrees(angle_radians)
 
     return angle_degrees
@@ -38,27 +48,29 @@ def verify_matches_ransac(
 ) -> Tuple[int, List[List[int]], np.ndarray, np.ndarray]:
     """
     Filters matches using RANSAC and returns the aligned point arrays for the inliers.
+    Uses vectorized NumPy operations for coordinate extraction.
     """
     if len(matches) < min_inliers:
         return 0, [], np.array([]), np.array([])
 
-    pts_live = np.float32([live_kpts[m[0]] for m in matches]).reshape(-1, 1, 2)
-    pts_db = np.float32([db_kpts[m[1]] for m in matches]).reshape(-1, 1, 2)
+    matches_arr = np.array(matches)
+    query_idxs = matches_arr[:, 0]
+    train_idxs = matches_arr[:, 1]
+
+    # Advanced indexing to eliminate Python list comprehensions
+    pts_live = live_kpts[query_idxs].astype(np.float32).reshape(-1, 1, 2)
+    pts_db = db_kpts[train_idxs].astype(np.float32).reshape(-1, 1, 2)
 
     homography, mask = cv2.findHomography(pts_live, pts_db, cv2.RANSAC, ransac_threshold)
 
     if homography is None:
         return 0, [], np.array([]), np.array([])
 
-    inliers_mask = mask.ravel().tolist()
-    inlier_matches = []
-    inlier_pts_live = []
-    inlier_pts_db = []
+    # Boolean masking for inlier extraction
+    inliers_bool = mask.ravel() == 1
 
-    for i, m in enumerate(matches):
-        if inliers_mask[i] == 1:
-            inlier_matches.append(m)
-            inlier_pts_live.append(pts_live[i])
-            inlier_pts_db.append(pts_db[i])
+    inlier_matches = matches_arr[inliers_bool].tolist()
+    inlier_pts_live = pts_live[inliers_bool]
+    inlier_pts_db = pts_db[inliers_bool]
 
-    return len(inlier_matches), inlier_matches, np.array(inlier_pts_live), np.array(inlier_pts_db)
+    return len(inlier_matches), inlier_matches, inlier_pts_live, inlier_pts_db

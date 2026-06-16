@@ -82,7 +82,7 @@ class TestRealDatasetEndToEnd:
 
         print(f"\\nStarting processing for directory: {TEST_DATASET_DIR}")
         processor.start_dataset_processing_pipeline(
-            target_dir=TEST_DATASET_DIR, view_callback=headless_ui
+            target_dir=TEST_DATASET_DIR
         )
 
         assert headless_ui.started is True, (
