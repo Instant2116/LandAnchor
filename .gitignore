@@ -3,16 +3,7 @@
 /landanchor_system.log
 /quick_script.py
 /requirements.txt
-/.idea/inspectionProfiles/profiles_settings.xml
-/.idea/inspectionProfiles/Project_Default.xml
-/.idea/.gitignore
-/.idea/dataSources.xml
-/.idea/db-forest-config.xml
-/.idea/LandAnchor.iml
-/.idea/misc.xml
-/.idea/modules.xml
-/.idea/sqldialects.xml
-/.idea/vcs.xml
+/.idea/*
 /accelerated_features-0.1/*
 /onnx/*
 /UAVLoc-M3_dataset/*
@@ -22,4 +13,5 @@
 /testground/
 /logs/
 /logs/*
+/*.xml
 /batch_results.jsonl
