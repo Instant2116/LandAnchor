@@ -1,3 +1,5 @@
+import cv2
+
 import argparse
 import json
 import sys
@@ -11,6 +13,14 @@ from logic.location_consumer import LocationConsumer
 
 def process_image(consumer: LocationConsumer, image_path: Path) -> None:
     """Processes a single image, writing JSON to stdout and errors to stderr."""
+
+    try:
+        with open(image_path, 'rb') as f:
+            pass
+    except OSError as e:
+        sys.stderr.write(f"\n[FATAL OS ERROR] Failed to open {image_path.name}: {e}\n")
+        sys.exit(1)
+
     if not image_path.is_file():
         sys.stderr.write(
             json.dumps(
@@ -81,7 +91,7 @@ def main() -> None:
         sys.stderr.write(f"Pipeline initialization failed: {e}\n")
         sys.exit(1)
 
-    # Execution Phase
+    # Execution
     if args.image:
         process_image(consumer, Path(args.image))
 
@@ -91,12 +101,15 @@ def main() -> None:
             sys.stderr.write(f"Directory not found or invalid: {dir_path}\n")
             sys.exit(1)
 
-        # Recursive search using rglob to find all files in all subfolders
-        files_to_process = [f for f in dir_path.rglob("*") if f.is_file()]
+        # Recursive search using rglob, strictly filtered to valid image formats
+        files_to_process = [
+            f for f in dir_path.rglob("*")
+            if f.is_file() and f.suffix.lower() in [".jpg", ".jpeg", ".png"]
+        ]
 
         # Output to stderr so it shows in the console, not the jsonl file
         sys.stderr.write(
-            f"[INFO] Found {len(files_to_process)} files to process in {dir_path}\n"
+            f"[INFO] Found {len(files_to_process)} valid image files to process in {dir_path}\n"
         )
         sys.stderr.flush()
 
@@ -106,4 +119,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

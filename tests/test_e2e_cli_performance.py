@@ -12,7 +12,7 @@ CLI_SCRIPT_PATH = os.path.abspath(
 TEST_DB_PATH = "e2e_real_test.db"
 MODEL_PATH = "onnx/xfeat_static_320.onnx"
 TEST_DATASET_DIR = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "test_dataset", "drone")
+    os.path.join(os.path.dirname(__file__), "../UAVLoc-M3_dataset/Chongmingdao", "drone")
 )
 
 
@@ -69,7 +69,6 @@ class TestE2ECLIPerformance:
         print("\n--- CLI COLD START RESULTS ---")
         print(f"Total Boot + 1 Frame Inference: {execution_time_ms:.2f} ms")
 
-        # Adjust the assertion threshold based on your VM's specific capabilities
         assert execution_time_ms < 5000.0, (
             f"Cold start latency {execution_time_ms:.2f} ms exceeded 5 second limit."
         )
@@ -86,11 +85,10 @@ class TestE2ECLIPerformance:
             MODEL_PATH,
         ]
 
-        # Use Popen to read the stream exactly as a downstream pipeline would
         process = subprocess.Popen(
             command,
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stderr=sys.stderr,  # Bypasses the OS pipe buffer limit
             text=True,
             bufsize=1,
         )
@@ -98,7 +96,6 @@ class TestE2ECLIPerformance:
         frame_timestamps = []
         parsed_results = 0
 
-        # Read stdout line-by-line as the pipeline yields JSON
         for line in process.stdout:
             line = line.strip()
             if not line:
@@ -121,7 +118,6 @@ class TestE2ECLIPerformance:
             "Not enough files processed to measure sustained throughput."
         )
 
-        # Calculate inter-frame latency (time between stdout JSON emissions)
         inter_frame_latencies_ms = np.diff(frame_timestamps) * 1000.0
         mean_latency = np.mean(inter_frame_latencies_ms)
         p99_latency = np.percentile(inter_frame_latencies_ms, 99)
@@ -129,13 +125,12 @@ class TestE2ECLIPerformance:
         total_batch_time = frame_timestamps[-1] - frame_timestamps[0]
         fps = (parsed_results - 1) / total_batch_time if total_batch_time > 0 else 0
 
-        print("\n--- CLI BATCH THROUGHPUT RESULTS ---")
+        print("\n--- CLI BATCH THROUGH THROUGHPUT RESULTS ---")
         print(f"Frames processed: {parsed_results}")
         print(f"Sustained Pipeline FPS: {fps:.2f} FPS")
         print(f"Mean inter-frame latency: {mean_latency:.2f} ms")
         print(f"P99 inter-frame latency:  {p99_latency:.2f} ms")
-
-        # Adjust assertions based on UAV requirements
+        #min 10 fps
         assert p99_latency < 200.0, (
             f"P99 pipeline latency {p99_latency:.2f} ms exceeds limit."
         )

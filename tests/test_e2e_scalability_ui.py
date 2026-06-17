@@ -3,7 +3,6 @@ import os
 import time
 import sqlite3
 import numpy as np
-import tkinter as tk
 import sys
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -109,31 +108,15 @@ class TestScalabilityAndUI:
         )
 
     def test_tc6_ui_reactivity_nfr05(self):
+        # Gracefully skip ONLY this UI test on headless servers.
+        # This allows test_tc5 to execute normally.
+        tk = pytest.importorskip("tkinter")
+
         db_manager = DBManager(TEST_DB_PATH)
         settings = SettingsManager()
         processor = DataProcessor(db_manager, settings)
+
         root = tk.Tk()
-
-        class MockView:
-            def __init__(self, tk_root):
-                self.tk_root = tk_root
-                self.started = False
-
-            def winfo_exists(self):
-                return True
-
-            def after(self, ms, func, *args):
-                self.tk_root.after(ms, func, *args)
-
-            def ui_signal_process_start(self):
-                self.started = True
-
-            def ui_signal_process_update(self, data):
-                pass
-
-            def ui_signal_process_complete(self):
-                pass
-
 
         processor.start_dataset_processing_pipeline(TEST_DATASET_DIR)
 
