@@ -1,3 +1,6 @@
+import os
+import sys
+from pathlib import Path
 import numpy as np
 import onnxruntime as ort
 from logic.logger import SystemLogger
@@ -9,8 +12,17 @@ class XFeatCore:
         self.gem_p = gem_p
 
         try:
+            # Windows cuDNN 9 DLL fix
+            venv_base = Path(sys.executable).parent.parent
+            cudnn_bin = venv_base / "Lib" / "site-packages" / "nvidia" / "cudnn" / "bin"
+
+            if cudnn_bin.exists():
+                os.add_dll_directory(str(cudnn_bin))
+                os.environ["PATH"] = str(cudnn_bin) + os.pathsep + os.environ["PATH"]
+
+            ort.preload_dlls()
             self.session = ort.InferenceSession(
-                model_path, providers=["CPUExecutionProvider"]
+                model_path, providers=['CUDAExecutionProvider', 'CPUExecutionProvider']
             )
             self.logger.info(f"ONNX inference node initialized from: {model_path}")
         except Exception as e:
