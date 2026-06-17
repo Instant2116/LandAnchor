@@ -1,5 +1,8 @@
 import sqlite3
+import os
+import datetime
 from typing import Optional, Dict, Any
+from contextlib import contextmanager
 import numpy as np
 
 
@@ -13,12 +16,25 @@ class DBManager:
         conn.execute("PRAGMA foreign_keys = ON;")
         return conn
 
+    @contextmanager
+    def _managed_connection(self):
+        """
+        Custom context manager that guarantees both transaction execution
+        (commit/rollback) AND immediate file descriptor destruction.
+        """
+        conn = self._get_connection()
+        try:
+            with conn:
+                yield conn
+        finally:
+            conn.close()
+
     def init_database(self) -> None:
         """
         Creates schema skeletons adhering to strict 3NF constraints.
         Formatted precisely to Tables 3.1 - 3.6 specifications.
         """
-        with self._get_connection() as conn:
+        with self._managed_connection() as conn:
             cursor = conn.cursor()
 
             cursor.execute("""
@@ -79,14 +95,10 @@ class DBManager:
                            );
                            """)
 
-            # --- FIX: EXPLICIT VERIFICATION ---
-            # Bypasses potential missing UNIQUE constraints in legacy database files
             for role in ['Operator', 'Technician']:
                 cursor.execute("SELECT id FROM Roles WHERE name = ?;", (role,))
                 if not cursor.fetchone():
                     cursor.execute("INSERT INTO Roles (name) VALUES (?);", (role,))
-
-            conn.commit()
 
     def add_user_signature(
         self, username: str, hardware_hash: str, role_name: str
@@ -96,7 +108,7 @@ class DBManager:
         Targeting the password_hash column as defined in Table 3.2.
         """
         try:
-            with self._get_connection() as conn:
+            with self._managed_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("SELECT id FROM Roles WHERE name = ?;", (role_name,))
                 role_row = cursor.fetchone()
@@ -112,7 +124,6 @@ class DBManager:
                 """,
                     (username, hardware_hash, role_id),
                 )
-                conn.commit()
                 return True
         except sqlite3.IntegrityError:
             return False
@@ -123,7 +134,7 @@ class DBManager:
         """
         Queries the database to find a user matching the provided hardware hash string.
         """
-        with self._get_connection() as conn:
+        with self._managed_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
@@ -140,13 +151,10 @@ class DBManager:
             return None
 
     def get_database_filename_node(self) -> str:
-        import os
-
         return os.path.basename(self.db_path)
 
     def get_active_database_metrics_report(self) -> Dict[str, Any]:
         """Compiles a statistical report of the current database state."""
-        import os
         metrics = {
             "landmarks_count": "0",
             "global_descriptors_count": "0",
@@ -154,7 +162,6 @@ class DBManager:
             "disk_size_string": "0.0 KB"
         }
 
-        # Calculate live disk footprint
         if os.path.exists(self.db_path):
             size_kb = os.path.getsize(self.db_path) / 1024
             if size_kb > 1024:
@@ -163,7 +170,7 @@ class DBManager:
                 metrics["disk_size_string"] = f"{size_kb:.2f} KB"
 
         try:
-            with self._get_connection() as conn:
+            with self._managed_connection() as conn:
                 cursor = conn.cursor()
 
                 cursor.execute("SELECT COUNT(*) FROM Landmarks;")
@@ -175,19 +182,18 @@ class DBManager:
                 cursor.execute("SELECT COUNT(*) FROM LocalFeatures;")
                 metrics["local_features_count"] = str(cursor.fetchone()[0])
         except sqlite3.Error:
-            pass  # Return defaults safely if tables haven't been created yet
+            pass
 
         return metrics
 
-
     def get_all_global_descriptors(self) -> list:
-        with self._get_connection() as conn:
+        with self._managed_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT landmark_id, global_vector FROM GlobalDescriptors;")
             return cursor.fetchall()
 
     def get_landmark_payload(self, landmark_id: int) -> dict:
-        with self._get_connection() as conn:
+        with self._managed_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
@@ -217,10 +223,8 @@ class DBManager:
             return {}
 
     def touch_landmark_metadata(self, landmark_id: int) -> None:
-        import datetime
-
         current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        with self._get_connection() as conn:
+        with self._managed_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
@@ -230,7 +234,6 @@ class DBManager:
                            """,
                 (current_time, landmark_id),
             )
-            conn.commit()
 
     @staticmethod
     def array_to_blob(arr: np.ndarray) -> bytes:
@@ -255,7 +258,7 @@ class DBManager:
     ) -> int:
         lon, lat, alt, azimuth = coordinates
 
-        with self._get_connection() as conn:
+        with self._managed_connection() as conn:
             cursor = conn.cursor()
 
             cursor.execute(
