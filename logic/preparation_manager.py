@@ -69,10 +69,10 @@ class PreparationManager:
             }
 
     def start_dataset_processing_pipeline(
-        self, target_dir: str, view_callback: Any
+        self, target_dir: str, caller_view: Any
     ) -> None:
         """Triggers the background extraction pipeline and locks the UI."""
-        self.register_preparation_view(view_callback)
+        self.register_preparation_view(caller_view)
 
         if self.view and self.view.winfo_exists():
             self.view.ui_signal_process_start()

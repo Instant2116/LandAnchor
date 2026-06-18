@@ -174,8 +174,7 @@ class AuthView(tk.Frame):
         )
 
         target_path = self.path_input.get().strip()
-        self.controller.validate_hardware_key(target_path, view_callback=self)
-
+        self.controller.validate_hardware_key(target_path, caller_view=self)
     def show_demo_generated(self) -> None:
         """Updates UI to show demo file was generated."""
         self.msg_box.configure(bg=self.theme["bg_success"])

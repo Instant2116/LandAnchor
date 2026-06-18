@@ -34,7 +34,8 @@
         "debugVisualization": true
     },
     "system": {
-        "version": "v1.5.0",
-        "default_key_name": "hardware_key.pem"
+        "default_key_name": "hardware_key.pem",
+        "app_title": "Drone Security System - LandAnchor",
+        "version": "v1.5.0"
     }
 }

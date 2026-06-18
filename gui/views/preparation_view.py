@@ -371,8 +371,8 @@ class PreparationView(tk.Frame):
                 title="Select Flight Mission Dataset Root Folder"
             )
             if target_dir:
-                self.controller.start_dataset_processing_pipeline(
-                    target_dir, view_callback=self
+                self.controller.start_preparation_pipeline(
+                    target_dir, caller_view=self
                 )
 
     def ui_signal_process_start(self) -> None:

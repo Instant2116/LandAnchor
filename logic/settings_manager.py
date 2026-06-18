@@ -48,8 +48,6 @@ class SettingsManager:
                 "writeDebugLogs": False,
             },
             "system": {
-                "app_title": "Drone Security System - LandAnchor",
-                "version": "v2.5.0",
                 "default_key_name": "hardware_key.pem",
             },
         }
