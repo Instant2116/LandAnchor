@@ -6,16 +6,7 @@ Provides the user interface for dataset processing, telemetry, and map tracking.
 import tkinter as tk
 from tkinter import ttk, filedialog
 from typing import Dict, Any, Optional, List, Tuple
-
-FONT_TITLE = ("Arial", 22, "bold")
-FONT_HEADING = ("Arial", 11, "bold")
-FONT_NORMAL = ("Arial", 10)
-FONT_SMALL = ("Arial", 9)
-
-FONT_MONO_NORMAL = ("Courier", 9)
-FONT_MONO_HEADING = ("Courier", 10, "bold")
-FONT_MONO_LARGE = ("Courier", 14, "bold")
-
+from styles import FONT_TITLE, FONT_HEADING, FONT_NORMAL, FONT_MONO_HEADING, FONT_MONO_NORMAL
 
 class OperatorView(tk.Frame):
     def __init__(self, parent: tk.Widget, controller: Any) -> None:
@@ -77,7 +68,7 @@ class OperatorView(tk.Frame):
             fg=self.t["text_primary"],
             bd=1,
             relief="solid",
-            font=FONT_SMALL,
+            font=FONT_NORMAL,
             cursor="hand2",
             command=self._on_connect_clicked,
         )
@@ -90,7 +81,7 @@ class OperatorView(tk.Frame):
             fg=self.t["text_primary"],
             bd=0,
             padx=10,
-            font=FONT_SMALL,
+            font=FONT_NORMAL,
             cursor="hand2",
             command=self._on_reset_clicked,
         )
@@ -216,7 +207,7 @@ class OperatorView(tk.Frame):
             text="Awaiting data",
             fg=self.t["text_muted"],
             bg=self.t["bg_secondary"],
-            font=FONT_SMALL,
+            font=FONT_NORMAL,
         )
         self.conf_status_txt.pack(side="left")
 
@@ -231,7 +222,7 @@ class OperatorView(tk.Frame):
         row = tk.Frame(parent, bg=self.t["bg_secondary"])
         row.pack(fill="x", pady=2)
         tk.Label(
-            row, text=label_text, fg=self.t["text_status"], bg=self.t["bg_secondary"], font=FONT_SMALL
+            row, text=label_text, fg=self.t["text_status"], bg=self.t["bg_secondary"], font=FONT_NORMAL
         ).pack(side="left")
 
         val_lbl = tk.Label(

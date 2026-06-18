@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, filedialog
+from styles import FONT_TITLE, FONT_HEADING, FONT_NORMAL, FONT_MONO_HEADING, FONT_MONO_NORMAL
 
 
 class SettingsView(tk.Frame):
@@ -16,7 +17,7 @@ class SettingsView(tk.Frame):
             text="Settings panel",
             fg=t["text_primary"],
             bg=t["bg_primary"],
-            font=("Arial", 22, "bold"),
+            font=FONT_TITLE,
             anchor="w",
         ).pack(fill="x")
         tk.Label(
@@ -24,7 +25,7 @@ class SettingsView(tk.Frame):
             text="Administration - real-time configuration",
             fg=t["text_status"],
             bg=t["bg_primary"],
-            font=("Arial", 10),
+            font=FONT_NORMAL,
             anchor="w",
         ).pack(fill="x")
 
@@ -50,7 +51,7 @@ class SettingsView(tk.Frame):
                 text=display_label,
                 fg=t["text_secondary"],
                 bg=t["bg_secondary"],
-                font=("Arial", 10, "bold"),
+                font=FONT_HEADING,
                 bd=0,
                 cursor="hand2",
                 command=lambda t_id=tab_id: self.switch_internal_tab(t_id),
@@ -168,7 +169,7 @@ class CVParamsTab(tk.Frame):
             text="Pipeline tuning parameters",
             fg=theme["text_primary"],
             bg=theme["bg_secondary"],
-            font=("Arial", 11, "bold"),
+            font=FONT_HEADING,
         ).pack(anchor="w", padx=20, pady=(12, 12))
 
         self.feat_slider, self.feat_entry = self._create_slider_control(
@@ -258,7 +259,7 @@ class CVParamsTab(tk.Frame):
             bg=theme["bg_accent"],
             fg=theme["text_primary"],
             bd=0,
-            font=("Arial", 11, "bold"),
+            font=FONT_HEADING,
             cursor="hand2",
             command=self.apply_config_changes,
         ).pack(side="left", fill="x", expand=True, padx=(0, 6), ipady=10)
@@ -269,7 +270,7 @@ class CVParamsTab(tk.Frame):
             fg=theme["text_primary"],
             bd=1,
             relief="solid",
-            font=("Arial", 11),
+            font=FONT_HEADING,
             cursor="hand2",
             command=self.reset_to_defaults,
         ).pack(side="right", fill="x", expand=True, padx=(6, 0), ipady=10)
@@ -288,7 +289,7 @@ class CVParamsTab(tk.Frame):
             text="Advanced architecture layers",
             fg=theme["text_primary"],
             bg=theme["bg_secondary"],
-            font=("Arial", 11, "bold"),
+            font=FONT_HEADING,
         ).pack(anchor="w", padx=20, pady=(12, 12))
 
         self.det_combo = self._create_dropdown_control(
@@ -311,7 +312,7 @@ class CVParamsTab(tk.Frame):
             text="Write DEBUG logs to disk",
             fg=theme["text_secondary"],
             bg=theme["bg_secondary"],
-            font=("Arial", 10),
+            font=FONT_NORMAL,
         ).pack(side="left")
 
         self.vis_var = tk.BooleanVar(
@@ -345,7 +346,7 @@ class CVParamsTab(tk.Frame):
             text="Live runtime variables",
             fg=theme["text_primary"],
             bg=theme["bg_secondary"],
-            font=("Arial", 11, "bold"),
+            font=FONT_HEADING,
         ).pack(anchor="w", padx=20, pady=(12, 8))
 
         self.dump_frame = tk.Frame(self.monitor_card, bg=theme["bg_secondary"])
@@ -386,7 +387,7 @@ class CVParamsTab(tk.Frame):
             text=label,
             fg=self.t["text_secondary"],
             bg=self.t["bg_secondary"],
-            font=("Arial", 10),
+            font=FONT_NORMAL,
         ).pack(side="left")
 
         current_v = self.current_params.get(param_key, 0) * multiplier
@@ -395,7 +396,7 @@ class CVParamsTab(tk.Frame):
             bg=self.t["bg_tertiary"],
             fg=self.t["accent_green"],
             insertbackground=self.t["accent_green"],
-            font=("Arial", 10, "bold"),
+            font=FONT_HEADING,
             width=8,
             justify="right",
             bd=1,
@@ -497,7 +498,7 @@ class CVParamsTab(tk.Frame):
             text=hint,
             fg=self.t["text_muted"],
             bg=self.t["bg_secondary"],
-            font=("Arial", 8),
+            font=FONT_NORMAL,
             anchor="w",
         ).pack(fill="x")
         return slider, entry
@@ -512,7 +513,7 @@ class CVParamsTab(tk.Frame):
             text=label,
             fg=self.t["text_secondary"],
             bg=self.t["bg_secondary"],
-            font=("Arial", 10),
+            font=FONT_NORMAL,
             anchor="w",
         ).pack(fill="x", pady=(0, 2))
         combo = ttk.Combobox(row, values=options, state="readonly")
@@ -566,14 +567,14 @@ class CVParamsTab(tk.Frame):
                 text=label_text,
                 fg=self.t["text_status"],
                 bg=self.t["bg_secondary"],
-                font=("Courier", 10),
+                font=FONT_MONO_NORMAL,
             ).pack(side="left")
             val_lbl = tk.Label(
                 row_frame,
                 text="",
                 fg=self.t["accent_green"],
                 bg=self.t["bg_secondary"],
-                font=("Courier", 10, "bold"),
+                font=FONT_MONO_HEADING,
             )
             val_lbl.pack(side="right")
             self.monitor_labels[param_key] = (val_lbl, rule)
@@ -673,7 +674,7 @@ class LogsTab(tk.Frame):
             text="System log console",
             fg=theme["text_primary"],
             bg=theme["bg_secondary"],
-            font=("Arial", 11, "bold"),
+            font=FONT_HEADING,
         ).pack(side="left")
 
         btn_box = tk.Frame(title_bar, bg=theme["bg_secondary"])
@@ -685,7 +686,7 @@ class LogsTab(tk.Frame):
             fg=theme["text_primary"],
             bd=1,
             relief="solid",
-            font=("Arial", 9),
+            font=FONT_NORMAL,
             cursor="hand2",
             command=self.export_logs_to_file,
         ).pack(side="left", padx=4)
@@ -696,7 +697,7 @@ class LogsTab(tk.Frame):
             fg=theme["text_primary"],
             bd=1,
             relief="solid",
-            font=("Arial", 9),
+            font=FONT_NORMAL,
             cursor="hand2",
             command=self.clear_logs_canvas,
         ).pack(side="left", padx=4)
@@ -707,7 +708,7 @@ class LogsTab(tk.Frame):
             fg=theme["text_secondary"],
             insertbackground=theme["text_primary"],
             bd=0,
-            font=("Courier", 10),
+            font=FONT_MONO_NORMAL,
             padx=16,
             pady=16,
         )
@@ -768,7 +769,7 @@ class KeyInfoTab(tk.Frame):
             text="Key file status",
             fg=theme["text_primary"],
             bg=theme["bg_secondary"],
-            font=("Arial", 11, "bold"),
+            font=FONT_HEADING,
         ).pack(side="left")
 
         self.key_list_frame = tk.Frame(self.left_box, bg=theme["bg_secondary"])
@@ -789,7 +790,7 @@ class KeyInfoTab(tk.Frame):
             text="Key metadata",
             fg=theme["text_primary"],
             bg=theme["bg_secondary"],
-            font=("Arial", 11, "bold"),
+            font=FONT_HEADING,
         ).pack(anchor="w", padx=20, pady=(16, 16))
 
         self.meta_frame = tk.Frame(self.right_box, bg=theme["bg_secondary"])
@@ -813,7 +814,7 @@ class KeyInfoTab(tk.Frame):
             text=meta.get("file_name", "Unknown"),
             fg=self.t["text_primary"],
             bg=self.t["bg_primary"],
-            font=("Arial", 10, "bold"),
+            font=FONT_HEADING,
             anchor="w",
         ).pack(fill="x", padx=12)
         tk.Label(
@@ -821,7 +822,7 @@ class KeyInfoTab(tk.Frame):
             text=meta.get("file_metrics", "No metrics"),
             fg=self.t["text_muted"],
             bg=self.t["bg_primary"],
-            font=("Arial", 9),
+            font=FONT_NORMAL,
             anchor="w",
         ).pack(fill="x", padx=12)
 
@@ -841,7 +842,7 @@ class KeyInfoTab(tk.Frame):
                 text=title,
                 fg=self.t["text_muted"],
                 bg=self.t["bg_secondary"],
-                font=("Arial", 9),
+                font=FONT_NORMAL,
                 anchor="w",
             ).pack(fill="x")
 
@@ -853,7 +854,7 @@ class KeyInfoTab(tk.Frame):
             f = (
                 ("Courier", 9, "bold")
                 if "fingerprint" in title.lower() or "hwid" in title.lower()
-                else ("Arial", 10)
+                else FONT_NORMAL
             )
 
             lbl = tk.Label(

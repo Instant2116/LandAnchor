@@ -1,6 +1,6 @@
 import tkinter as tk
 from typing import Any
-
+from styles import FONT_TITLE, FONT_HEADING, FONT_NORMAL
 
 class AuthView(tk.Frame):
     """
@@ -41,7 +41,7 @@ class AuthView(tk.Frame):
             text="Authorization required",
             fg=self.theme["text_primary"],
             bg=self.theme["bg_secondary"],
-            font=("Arial", 20, "bold"),
+            font=FONT_TITLE,
         ).pack(pady=(40, 4))
 
         tk.Label(
@@ -49,7 +49,7 @@ class AuthView(tk.Frame):
             text="Cryptographic key required",
             fg=self.theme["text_status"],
             bg=self.theme["bg_secondary"],
-            font=("Arial", 10),
+            font=FONT_NORMAL,
         ).pack(pady=(0, 30))
 
         # Media status section
@@ -58,7 +58,7 @@ class AuthView(tk.Frame):
             text="File status",
             fg=self.theme["text_secondary"],
             bg=self.theme["bg_secondary"],
-            font=("Arial", 10, "bold"),
+            font=FONT_HEADING,
         ).pack(anchor="w", padx=40)
 
         self.status_box = tk.Frame(
@@ -75,7 +75,7 @@ class AuthView(tk.Frame):
             text="PEM file detected",
             fg=self.theme["accent_green"],
             bg=self.theme["bg_success"],
-            font=("Arial", 11, "bold"),
+            font=FONT_HEADING,
             anchor="w",
         ).pack(fill="x", padx=16)
 
@@ -84,7 +84,7 @@ class AuthView(tk.Frame):
             text="SHA-256 signature ready",
             fg=self.theme["accent_success"],
             bg=self.theme["bg_success"],
-            font=("Arial", 9),
+            font=FONT_NORMAL,
             anchor="w",
         ).pack(fill="x", padx=16)
 
@@ -94,7 +94,7 @@ class AuthView(tk.Frame):
             text="PEM file target path",
             fg=self.theme["text_secondary"],
             bg=self.theme["bg_secondary"],
-            font=("Arial", 10, "bold"),
+            font=FONT_HEADING,
         ).pack(anchor="w", padx=40)
 
         self.path_input = tk.Entry(
@@ -104,7 +104,7 @@ class AuthView(tk.Frame):
             insertbackground=self.theme["text_primary"],
             bd=1,
             relief="solid",
-            font=("Arial", 11),
+            font=FONT_NORMAL,
         )
         self.path_input.insert(0, self.controller.app_config["system"]["default_key_name"])
         self.path_input.pack(fill="x", padx=40, pady=(6, 4), ipady=10)
@@ -114,7 +114,7 @@ class AuthView(tk.Frame):
             text="Generate demo .pem file",
             bg=self.theme["bg_tertiary"],
             fg=self.theme["accent_blue"],
-            font=("Arial", 9),
+            font=FONT_NORMAL,
             bd=0,
             cursor="hand2",
             command=self._on_generate_click,
@@ -126,7 +126,7 @@ class AuthView(tk.Frame):
             text="Key validation status",
             fg=self.theme["text_secondary"],
             bg=self.theme["bg_secondary"],
-            font=("Arial", 10, "bold"),
+            font=FONT_HEADING,
         ).pack(anchor="w", padx=40)
 
         self.msg_box = tk.Frame(self.card, bg=self.theme["bg_tertiary"], bd=0)
@@ -137,7 +137,7 @@ class AuthView(tk.Frame):
             text="Awaiting validation",
             fg=self.theme["text_status"],
             bg=self.theme["bg_tertiary"],
-            font=("Arial", 11),
+            font=FONT_NORMAL,
             anchor="w",
         )
         self.msg_label.pack(fill="x", padx=16)
@@ -151,7 +151,7 @@ class AuthView(tk.Frame):
             activebackground=self.theme["bg_accent"],
             activeforeground=self.theme["text_primary"],
             bd=0,
-            font=("Arial", 12, "bold"),
+            font=FONT_HEADING,
             cursor="hand2",
             command=self._on_validate_click,
         )

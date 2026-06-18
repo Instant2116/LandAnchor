@@ -1,8 +1,8 @@
 import tkinter as tk
-from tkinter import ttk, filedialog
+from tkinter import filedialog, ttk
 from typing import Any, Dict, Optional
-from PIL import ImageTk, Image
-
+from PIL import Image, ImageTk
+from styles import FONT_TITLE, FONT_HEADING, FONT_NORMAL, FONT_MONO_HEADING, FONT_MONO_NORMAL
 
 class PreparationView(tk.Frame):
     """
@@ -53,7 +53,7 @@ class PreparationView(tk.Frame):
             text="Preparation Screen",
             fg=self.theme["text_primary"],
             bg=self.theme["bg_primary"],
-            font=("Arial", 22, "bold"),
+            font=FONT_TITLE,
             anchor="w",
         ).pack(fill="x")
 
@@ -62,7 +62,7 @@ class PreparationView(tk.Frame):
             text="Provide data for mapping",
             fg=self.theme["text_status"],
             bg=self.theme["bg_primary"],
-            font=("Arial", 10),
+            font=FONT_NORMAL,
             anchor="w",
         ).pack(fill="x")
 
@@ -95,7 +95,7 @@ class PreparationView(tk.Frame):
             text="Processing Target Mode:",
             fg=self.theme["text_secondary"],
             bg=self.theme["bg_primary"],
-            font=("Arial", 10),
+            font=FONT_NORMAL,
         ).pack(side="left")
 
         self.source_combo = ttk.Combobox(
@@ -121,7 +121,7 @@ class PreparationView(tk.Frame):
             bd=1,
             relief="solid",
             highlightbackground=self.theme["border_color"],
-            font=("Arial", 10),
+            font=FONT_NORMAL,
             cursor="hand2",
             command=self._on_ingestion_button_click,
         )
@@ -145,7 +145,7 @@ class PreparationView(tk.Frame):
             text="Data processing context",
             fg=self.theme["text_primary"],
             bg=self.theme["bg_secondary"],
-            font=("Arial", 11, "bold"),
+            font=FONT_HEADING,
         ).pack(side="left")
 
         self.feed_status_txt = tk.Label(
@@ -153,7 +153,7 @@ class PreparationView(tk.Frame):
             text="PIPELINE STANDBY",
             fg=self.theme["text_muted"],
             bg=self.theme["bg_secondary"],
-            font=("Arial", 9, "bold"),
+            font=FONT_HEADING,
         )
         self.feed_status_txt.pack(side="right")
 
@@ -207,7 +207,7 @@ class PreparationView(tk.Frame):
             text="Data processing progress",
             fg=self.theme["text_primary"],
             bg=self.theme["bg_secondary"],
-            font=("Arial", 11, "bold"),
+            font=FONT_HEADING,
         ).pack(anchor="w", padx=16, pady=(12, 16))
 
         p_labels = tk.Frame(db_form_card, bg=self.theme["bg_secondary"])
@@ -218,7 +218,7 @@ class PreparationView(tk.Frame):
             text="Ingestion Queue Scale",
             fg=self.theme["text_status"],
             bg=self.theme["bg_secondary"],
-            font=("Arial", 10),
+            font=FONT_NORMAL,
         ).pack(side="left")
 
         self.progress_percent_lbl = tk.Label(
@@ -226,7 +226,7 @@ class PreparationView(tk.Frame):
             text="0%",
             fg=self.theme["text_muted"],
             bg=self.theme["bg_secondary"],
-            font=("Arial", 10, "bold"),
+            font=FONT_HEADING,
         )
         self.progress_percent_lbl.pack(side="right")
 
@@ -266,7 +266,7 @@ class PreparationView(tk.Frame):
             text="Relational database metrics",
             fg=self.theme["text_primary"],
             bg=self.theme["bg_secondary"],
-            font=("Arial", 11, "bold"),
+            font=FONT_HEADING,
         ).pack(anchor="w", padx=16, pady=(12, 16))
 
         db_meta_box = tk.Frame(current_db_card, bg=self.theme["bg_secondary"])
@@ -277,7 +277,7 @@ class PreparationView(tk.Frame):
             text=self.controller.get_database_filename_node(),
             fg=self.theme["text_primary"],
             bg=self.theme["bg_secondary"],
-            font=("Arial", 10, "bold"),
+            font=FONT_HEADING,
             anchor="w",
         )
         self.db_name_title.pack(fill="x")
@@ -287,7 +287,7 @@ class PreparationView(tk.Frame):
             text="Active database information",
             fg=self.theme["text_muted"],
             bg=self.theme["bg_secondary"],
-            font=("Arial", 9),
+            font=FONT_NORMAL,
             anchor="w",
         ).pack(fill="x")
 
@@ -331,7 +331,7 @@ class PreparationView(tk.Frame):
             text="Computing core configuration",
             fg=self.theme["text_primary"],
             bg=self.theme["bg_secondary"],
-            font=("Arial", 11, "bold"),
+            font=FONT_HEADING,
         ).pack(anchor="w", padx=16, pady=(12, 12))
 
         cv_params: Dict[str, Any] = self.controller.get_cv_params()
@@ -420,7 +420,7 @@ class PreparationView(tk.Frame):
         self.update_canvas_frame_view(running=True, data=data)
 
         # Modulo check prevents I/O choking while processing heavy directories
-        if data.get("current_index", 0) % 5 == 0:
+        if data.get("current_index", 0) % 8 == 0:
             self.refresh_ui_metrics_display()
 
 
@@ -448,7 +448,7 @@ class PreparationView(tk.Frame):
             text=label,
             fg=self.theme["text_status"],
             bg=self.theme["bg_secondary"],
-            font=("Arial", 10),
+            font=FONT_NORMAL,
         ).pack(side="left")
 
         v_lbl = tk.Label(
@@ -456,7 +456,7 @@ class PreparationView(tk.Frame):
             text=val,
             fg=color,
             bg=self.theme["bg_secondary"],
-            font=("Arial", 10, "bold"),
+            font=FONT_HEADING,
         )
         v_lbl.pack(side="right")
         return v_lbl
@@ -473,7 +473,7 @@ class PreparationView(tk.Frame):
             text=label,
             fg=self.theme["text_muted"],
             bg=self.theme["bg_primary"],
-            font=("Arial", 9),
+            font=FONT_NORMAL,
         ).pack()
 
         v_lbl = tk.Label(
@@ -481,7 +481,7 @@ class PreparationView(tk.Frame):
             text=init_val,
             fg=color,
             bg=self.theme["bg_primary"],
-            font=("Arial", 11, "bold"),
+            font=FONT_HEADING,
         )
         v_lbl.pack()
         return v_lbl
@@ -498,7 +498,7 @@ class PreparationView(tk.Frame):
             text=label,
             fg=self.theme["text_status"],
             bg=self.theme["bg_secondary"],
-            font=("Arial", 10),
+            font=FONT_NORMAL,
         ).pack(side="left")
 
         v_lbl = tk.Label(
@@ -506,7 +506,7 @@ class PreparationView(tk.Frame):
             text=val,
             fg=color,
             bg=self.theme["bg_secondary"],
-            font=("Courier", 10, "bold"),
+            font=FONT_MONO_NORMAL,
         )
         v_lbl.pack(side="right")
         return v_lbl
@@ -534,7 +534,7 @@ class PreparationView(tk.Frame):
                 h / 2,
                 text="Awaiting dataset input.",
                 fill=self.theme["text_muted"],
-                font=("Courier", 11),
+                font=FONT_MONO_HEADING,
             )
             return
 
@@ -553,7 +553,7 @@ class PreparationView(tk.Frame):
                     resample_filter = (
                         Image.Resampling.LANCZOS
                         if hasattr(Image, "Resampling")
-                        else Image.ANTIALIAS
+                        else Image.Resampling.LANCZOS
                     )
                     resized_img = pil_img.resize((new_w, new_h), resample_filter)
 
@@ -582,6 +582,6 @@ class PreparationView(tk.Frame):
             22,
             text="ONNX Inference Core Active",
             fill=self.theme["accent_green"],
-            font=("Courier", 9, "bold"),
+            font=FONT_MONO_NORMAL,
             anchor="w",
         )
