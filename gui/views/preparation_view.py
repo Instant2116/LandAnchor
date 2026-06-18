@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import filedialog, ttk
 from typing import Any, Dict, Optional
 from PIL import Image, ImageTk
-from styles import FONT_TITLE, FONT_HEADING, FONT_NORMAL, FONT_MONO_HEADING, FONT_MONO_NORMAL
+from gui.views.styles import FONT_TITLE, FONT_HEADING, FONT_NORMAL, FONT_MONO_HEADING, FONT_MONO_NORMAL
 
 class PreparationView(tk.Frame):
     """

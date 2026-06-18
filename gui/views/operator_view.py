@@ -1,14 +1,15 @@
-"""
-Operator view for LandAnchor.
-Provides the user interface for dataset processing, telemetry, and map tracking.
-"""
+
 
 import tkinter as tk
 from tkinter import ttk, filedialog
 from typing import Dict, Any, Optional, List, Tuple
-from styles import FONT_TITLE, FONT_HEADING, FONT_NORMAL, FONT_MONO_HEADING, FONT_MONO_NORMAL
+from gui.views.styles import FONT_TITLE, FONT_HEADING, FONT_NORMAL, FONT_MONO_HEADING, FONT_MONO_NORMAL
 
 class OperatorView(tk.Frame):
+    """
+    Operator view for LandAnchor.
+    Provides the user interface for dataset processing, telemetry, and map tracking.
+    """
     def __init__(self, parent: tk.Widget, controller: Any) -> None:
         self.controller = controller
         self.t: Dict[str, str] = controller.app_config["theme"]

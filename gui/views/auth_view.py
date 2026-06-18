@@ -1,6 +1,6 @@
 import tkinter as tk
 from typing import Any
-from styles import FONT_TITLE, FONT_HEADING, FONT_NORMAL
+from gui.views.styles import FONT_TITLE, FONT_HEADING, FONT_NORMAL
 
 class AuthView(tk.Frame):
     """
