@@ -9,10 +9,14 @@ import numpy as np
 CLI_SCRIPT_PATH = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "cli_main.py")
 )
-TEST_DB_PATH = "e2e_real_test.db"
-MODEL_PATH = "onnx/xfeat_static_320.onnx"
+TEST_DB_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "test_dbs", "e2e_cli_perf.db")
+)
+MODEL_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "onnx", "xfeat_static_320.onnx")
+)
 TEST_DATASET_DIR = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "../UAVLoc-M3_dataset/Chongmingdao", "drone")
+    os.path.join(os.path.dirname(__file__), "test_dataset", "drone")
 )
 
 

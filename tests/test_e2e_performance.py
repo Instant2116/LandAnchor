@@ -13,15 +13,34 @@ from logic.settings_manager import SettingsManager
 from db.db_manager import DBManager
 from logic.xfeat_core import XFeatCore
 
-TEST_DB_PATH = "e2e_real_test.db"
-MODEL_PATH = "onnx/xfeat_static_320.onnx"
+TEST_DB_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "test_dbs", "e2e_real_test.db")
+)
+MODEL_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "onnx", "xfeat_static_320.onnx")
+)
 TEST_DATASET_DIR = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "test_dataset", "drone")
 )
 
 
 class TestE2EPerformance:
-    def test_nfr01_real_inference_performance(self):
+    @classmethod
+    def setup_class(cls):
+        # Ensure target directory exists
+        os.makedirs(os.path.dirname(TEST_DB_PATH), exist_ok=True)
+        if os.path.exists(TEST_DB_PATH):
+            os.remove(TEST_DB_PATH)
+
+    @classmethod
+    def teardown_class(cls):
+        if os.path.exists(TEST_DB_PATH):
+            try:
+                os.remove(TEST_DB_PATH)
+            except PermissionError:
+                pass
+
+    def test_nfr_inference_latency_p99(self):
         if not os.path.exists(MODEL_PATH):
             pytest.skip(f"ONNX model missing at {MODEL_PATH}")
         if not os.path.exists(TEST_DATASET_DIR):
@@ -32,7 +51,6 @@ class TestE2EPerformance:
         model = XFeatCore(model_path=MODEL_PATH)
         consumer = LocationConsumer(db_manager, model, settings)
 
-        # 1. Завантаження РЕАЛЬНИХ даних для тестування
         image_files = [
             f
             for f in os.listdir(TEST_DATASET_DIR)
@@ -43,7 +61,7 @@ class TestE2EPerformance:
                 "No images found in the dataset directory to perform real performance testing."
             )
 
-        # Кешуємо до 50 реальних кадрів, щоб ізолювати час I/O диска від часу інференсу
+        # Cache up to 50 real frames to isolate disk I/O time from inference time
         print(f"Loading {min(len(image_files), 50)} real frames for benchmark...")
         real_frames = []
         for file in image_files[:50]:
@@ -52,12 +70,12 @@ class TestE2EPerformance:
             if frame is not None:
                 real_frames.append(frame)
 
-        # 2. Прогрів рушія ONNX (Warm-up)
+        #  Warm-up ONNX engine
         print("Warming up ONNX Runtime engine...")
         for frame in real_frames[:5]:
             consumer.localize(frame)
 
-        # 3. Бенчмаркінг на великій вибірці (500 ітерацій)
+        #  Benchmarking on a large sample (500 iterations)
         iterations = 500
         execution_times = []
         frame_iterator = itertools.cycle(real_frames)

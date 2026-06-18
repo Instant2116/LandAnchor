@@ -11,9 +11,12 @@ from logic.settings_manager import SettingsManager
 from db.db_manager import DBManager
 from logic.xfeat_core import XFeatCore
 
-TEST_DB_PATH = "e2e_real_test.db"
-MODEL_PATH = "onnx/xfeat_static_320.onnx"
-
+TEST_DB_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "test_dbs", "e2e_nav.db")
+)
+MODEL_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "onnx", "xfeat_static_320.onnx")
+)
 class TestE2ENavigation:
     @classmethod
     def setup_class(cls):

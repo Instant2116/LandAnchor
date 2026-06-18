@@ -11,9 +11,9 @@ from db.db_manager import DBManager
 TEST_DATASET_DIR = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "test_dataset")
 )
-TEST_DB_PATH = "e2e_real_test.db"
-
-
+TEST_DB_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "test_dbs", "data_proc.db")
+)
 class HeadlessUIObserver:
     def __init__(self):
         self.completion_event = threading.Event()
@@ -30,7 +30,7 @@ class HeadlessUIObserver:
         self.completion_event.set()
 
 
-class TestRealDatasetEndToEnd:
+class TestE2EProcessing:
     @classmethod
     def setup_class(cls):
         if os.path.exists(TEST_DB_PATH):
@@ -44,7 +44,7 @@ class TestRealDatasetEndToEnd:
             except PermissionError:
                 pass
 
-    def test_end_to_end_pipeline_with_real_dataset(self):
+    def test_e2e_pipeline_extraction_and_deduplication(self):
         main_xlsx = os.path.join(TEST_DATASET_DIR, "test_dataset.xlsx")
         dem_xlsx = os.path.join(TEST_DATASET_DIR, "location_with_dem.xlsx")
         drone_dir = os.path.join(TEST_DATASET_DIR, "drone")

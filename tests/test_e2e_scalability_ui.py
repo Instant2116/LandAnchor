@@ -11,7 +11,10 @@ from db.db_manager import DBManager
 from logic.data_processor import DataProcessor
 from logic.settings_manager import SettingsManager
 
-TEST_DB_PATH = "e2e_scale_ui.db"
+# Corrected: Absolute path pointing to the intended test_dbs directory
+TEST_DB_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "test_dbs", "e2e_scale_ui.db")
+)
 TEST_DATASET_DIR = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "test_dataset")
 )
@@ -20,6 +23,8 @@ TEST_DATASET_DIR = os.path.abspath(
 class TestScalabilityAndUI:
     @classmethod
     def setup_class(cls):
+        # Added: Ensure target directory exists before test execution
+        os.makedirs(os.path.dirname(TEST_DB_PATH), exist_ok=True)
         if os.path.exists(TEST_DB_PATH):
             os.remove(TEST_DB_PATH)
 
@@ -31,7 +36,8 @@ class TestScalabilityAndUI:
             except PermissionError:
                 pass
 
-    def test_tc5_database_scalability_nfr04(self):
+    # Renamed for taxonomic consistency
+    def test_nfr_db_vector_search_latency(self):
         db_manager = DBManager(TEST_DB_PATH)
 
         target_count = 50000
@@ -107,9 +113,10 @@ class TestScalabilityAndUI:
             f"Vector search time P99 {p99_search_time:.2f} ms is too slow."
         )
 
-    def test_tc6_ui_reactivity_nfr05(self):
+    # Renamed for taxonomic consistency
+    def test_nfr_ui_event_loop_reactivity(self):
         # Gracefully skip ONLY this UI test on headless servers.
-        # This allows test_tc5 to execute normally.
+        # This allows the database test to execute normally.
         tk = pytest.importorskip("tkinter")
 
         db_manager = DBManager(TEST_DB_PATH)
